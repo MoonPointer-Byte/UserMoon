@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="MoonPointer — KingPointer 的个人站点，记录 AI、全栈与创意工具的探索。" />
+  <title>MoonPointer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230a0e17'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23e8eef6'/%3E%3Ccircle cx='12' cy='13' r='5' fill='%230a0e17'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+
+  <header class="nav">
+    <a class="nav__brand" href="#top">MoonPointer</a>
+    <nav class="nav__links" aria-label="主导航">
+      <a href="#about">关于</a>
+      <a href="#works">作品</a>
+      <a href="#contact">联系</a>
+    </nav>
+    <a class="nav__cta" href="https://github.com/MoonPointer-Byte" target="_blank" rel="noopener noreferrer">GitHub</a>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-label="首页">
+      <div class="hero__sky" aria-hidden="true">
+        <div class="hero__glow"></div>
+        <div class="hero__moon">
+          <div class="hero__moon-core"></div>
+          <div class="hero__moon-shadow"></div>
+        </div>
+        <div class="hero__stars" id="stars"></div>
+      </div>
+      <div class="hero__content">
+        <p class="hero__brand">MoonPointer</p>
+        <h1 class="hero__title">指向月亮的人，也在建造通往星空的工具。</h1>
+        <p class="hero__lead">KingPointer · AI 应用 · 全栈协作 · 创意工程</p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#works">浏览作品</a>
+          <a class="btn btn--ghost" href="https://github.com/MoonPointer-Byte?tab=repositories" target="_blank" rel="noopener noreferrer">打开仓库</a>
+        </div>
+      </div>
+      <div class="hero__scroll" aria-hidden="true">
+        <span>向下探索</span>
+        <div class="hero__scroll-line"></div>
+      </div>
+    </section>
+
+    <section class="about" id="about">
+      <div class="section__inner">
+        <p class="section__eyebrow">About</p>
+        <h2 class="section__title">用代码指向问题，用产品落地答案。</h2>
+        <p class="section__text">
+          我是 KingPointer（MoonPointer-Byte）。我喜欢把 AI、交互与工程能力揉进同一件作品里——从模拟面试与 RAG 应用，到阅读协作、远程键盘与实时同传。MoonPointer 是我的个人坐标：记录正在做的事，以及想把月亮指给谁看。
+        </p>
+        <ul class="about__tags" aria-label="关注领域">
+          <li>AI Agent</li>
+          <li>全栈 Web</li>
+          <li>实时交互</li>
+          <li>产品工程</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="works" id="works">
+      <div class="section__inner">
+        <p class="section__eyebrow">Selected Works</p>
+        <h2 class="section__title">精选项目</h2>
+        <p class="section__text section__text--narrow">来自公开仓库的代表作，持续更新。</p>
+
+        <div class="works__list">
+          <article class="work">
+            <div class="work__meta">
+              <span class="work__lang">Vue</span>
+              <a class="work__link" href="https://github.com/MoonPointer-Byte/Ideaface" target="_blank" rel="noopener noreferrer">查看仓库</a>
+            </div>
+            <h3 class="work__name">Ideaface</h3>
+            <p class="work__desc">集成博客、AI 模拟面试、题库、算法在线测、Agent 与多用户社交的 AI 应用平台。</p>
+          </article>
+
+          <article class="work">
+            <div class="work__meta">
+              <span class="work__lang">TypeScript</span>
+              <a class="work__link" href="https://github.com/MoonPointer-Byte/MoonReader" target="_blank" rel="noopener noreferrer">查看仓库</a>
+            </div>
+            <h3 class="work__name">MoonReader</h3>
+            <p class="work__desc">文档阅读、即时通讯与多账户邮件管理一体的全栈协作空间，面向沉浸式办公与学习。</p>
+          </article>
+
+          <article class="work">
+            <div class="work__meta">
+              <span class="work__lang">Python</span>
+              <a class="work__link" href="https://github.com/MoonPointer-Byte/MoonMusic" target="_blank" rel="noopener noreferrer">查看仓库</a>
+            </div>
+            <h3 class="work__name">MoonMusic</h3>
+            <p class="work__desc">聚合多平台音乐资源与社交关联信息的爬虫工具，把听歌与发现串成一条链路。</p>
+          </article>
+
+          <article class="work">
+            <div class="work__meta">
+              <span class="work__lang">C++ / Flutter</span>
+              <a class="work__link" href="https://github.com/MoonPointer-Byte/MoonKeyboard" target="_blank" rel="noopener noreferrer">查看仓库</a>
+            </div>
+            <h3 class="work__name">MoonKeyboard</h3>
+            <p class="work__desc">跨平台远程虚拟键盘：UDP 低延迟输入、防误触与心跳监测，为全屏游戏场景而生。</p>
+          </article>
+
+          <article class="work">
+            <div class="work__meta">
+              <span class="work__lang">TypeScript</span>
+              <a class="work__link" href="https://github.com/MoonPointer-Byte/MoonPointerAI" target="_blank" rel="noopener noreferrer">查看仓库</a>
+            </div>
+            <h3 class="work__name">MoonPointerAI</h3>
+            <p class="work__desc">实时 AI 同声传译实验，探索语音、模型与低延迟链路如何一起工作。</p>
+          </article>
+
+          <article class="work">
+            <div class="work__meta">
+              <span class="work__lang">HTML</span>
+              <a class="work__link" href="https://github.com/MoonPointer-Byte/AnswerBook" target="_blank" rel="noopener noreferrer">查看仓库</a>
+            </div>
+            <h3 class="work__name">AnswerBook</h3>
+            <p class="work__desc">「全知之书」视觉实验——把答案感做成可翻开的交互体验。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="contact" id="contact">
+      <div class="section__inner section__inner--center">
+        <p class="section__eyebrow">Contact</p>
+        <h2 class="section__title">想一起指月亮？</h2>
+        <p class="section__text">通过 GitHub 找到我，或直接浏览更多仓库。</p>
+        <div class="contact__actions">
+          <a class="btn btn--primary" href="https://github.com/MoonPointer-Byte" target="_blank" rel="noopener noreferrer">@MoonPointer-Byte</a>
+          <a class="btn btn--ghost" href="https://github.com/MoonPointer-Byte?tab=repositories" target="_blank" rel="noopener noreferrer">全部仓库</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p><span class="footer__brand">MoonPointer</span> · 项目 UserMoon · © <span id="year"></span> KingPointer</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
