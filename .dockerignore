@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.env
+.env.*
+!.env.example
+runtime
+server/agent-runs
+server/article-cache
+server/usermoon.db
+server/usermoon.db-*
+*.log
+.tmp*
+.tmp-*
+**/.DS_Store
+**/Thumbs.db
+agent-transcripts

@@ -1,0 +1,246 @@
+[
+  {
+    "id": "ideaface",
+    "name": "Ideaface",
+    "year": "2025",
+    "lang": "Vue",
+    "weight": "中",
+    "tags": [
+      "AI",
+      "面试",
+      "社区"
+    ],
+    "url": "https://github.com/MoonPointer-Byte/Ideaface",
+    "summary": "博客、AI 模拟面试、题库与社交。同一容器里先起 Java 后端（8081，连本机 MySQL），再起前端。",
+    "scene": "面试间",
+    "env": "Docker · Node 20 · Java 21 · MySQL",
+    "launch": {
+      "kind": "docker",
+      "repo": "MoonPointer-Byte/Ideaface",
+      "localPath": "D:/usermoon-src/Ideaface/interview-frontend",
+      "fallbackPath": null,
+      "cwd": "interview-frontend",
+      "port": 18762,
+      "readyPath": "/",
+      "image": "docker.m.daocloud.io/library/node:20-alpine",
+      "innerPort": 8080,
+      "command": "sh /src/.runtime/ideaface-up.sh",
+      "modulesVolume": "usermoon-ideaface-nm"
+    }
+  },
+  {
+    "id": "moonreader",
+    "name": "MoonReader",
+    "year": "2026",
+    "lang": "TypeScript",
+    "weight": "重",
+    "tags": [
+      "阅读",
+      "协作",
+      "邮件"
+    ],
+    "url": "https://github.com/MoonPointer-Byte/MoonReader",
+    "summary": "阅读、协作与邮件。同一容器里先起 Redis 和 Java 后端，再起前端。",
+    "scene": "阅读桌",
+    "env": "Docker · Node 20 · Java 21 · MySQL · Redis",
+    "launch": {
+      "kind": "docker",
+      "repo": "MoonPointer-Byte/MoonReader",
+      "localPath": "D:/usermoon-src/MoonReader/XS_frontend/frontend",
+      "fallbackPath": null,
+      "cwd": "XS_frontend/frontend",
+      "port": 18763,
+      "readyPath": "/",
+      "image": "docker.m.daocloud.io/library/node:20-alpine",
+      "innerPort": 8080,
+      "command": "sh /src/.runtime/moonreader-up.sh",
+      "modulesVolume": "usermoon-moonreader-nm"
+    }
+  },
+  {
+    "id": "moonmusic",
+    "name": "MoonMusic",
+    "year": "2025",
+    "lang": "Python",
+    "weight": "中",
+    "tags": [
+      "音乐",
+      "爬虫"
+    ],
+    "url": "https://github.com/MoonPointer-Byte/MoonMusic",
+    "summary": "Python + Flet 播放器。容器里用 Flet Web 打开 MoonMusicPC。",
+    "scene": "播放器",
+    "env": "Docker · Python 3.12 · Flet Web",
+    "launch": {
+      "kind": "docker",
+      "repo": "MoonPointer-Byte/MoonMusic",
+      "localPath": "D:/usermoon-src/MoonMusic",
+      "fallbackPath": null,
+      "cwd": ".",
+      "port": 18766,
+      "readyPath": "/",
+      "image": "docker.1ms.run/library/python:3.12-slim",
+      "innerPort": 8080,
+      "command": "export PATH=/opt/flet/bin:$PATH PYTHONPATH=/opt/flet/lib/python3.12/site-packages SDL_AUDIODRIVER=dummy && if [ ! -x /opt/flet/bin/flet ]; then pip install --no-cache-dir --prefix /opt/flet -r MoonMusicPC/requirements.txt flet==0.28.3 flet-desktop==0.28.3; fi && cd MoonMusicPC && flet run --web --host 0.0.0.0 --port 8080 main.py",
+      "modulesVolume": null,
+      "caches": [
+        {
+          "volume": "usermoon-moonmusic-py",
+          "at": "/opt/flet"
+        }
+      ]
+    }
+  },
+  {
+    "id": "moonkeyboard",
+    "name": "MoonKeyboard",
+    "year": "2026",
+    "lang": "Flutter",
+    "weight": "重",
+    "tags": [
+      "输入",
+      "低延迟"
+    ],
+    "url": "https://github.com/MoonPointer-Byte/MoonKeyboard",
+    "summary": "Flutter 键盘。展示用已经打好的 Web 包，运行时只开静态服务。",
+    "scene": "键位",
+    "env": "Docker · Python 静态页",
+    "launch": {
+      "kind": "docker",
+      "repo": "MoonPointer-Byte/MoonKeyboard",
+      "localPath": "D:/usermoon-src/MoonKeyboard/build/web",
+      "fallbackPath": null,
+      "cwd": "build/web",
+      "port": 18765,
+      "readyPath": "/",
+      "image": "docker.1ms.run/library/python:3.12-slim",
+      "innerPort": 8080,
+      "command": "python -m http.server 8080",
+      "modulesVolume": null
+    }
+  },
+  {
+    "id": "moonpointerai",
+    "name": "MoonPointerAI",
+    "year": "2026",
+    "lang": "TypeScript",
+    "weight": "重",
+    "tags": [
+      "同传",
+      "语音"
+    ],
+    "url": "https://github.com/MoonPointer-Byte/MoonPointerAI",
+    "summary": "Web：React + Vite（3000）。后端：JDK 17 + Spring Boot（8080）+ MySQL + DeepSeek API Key。",
+    "scene": "译站",
+    "env": "Docker · Node 20",
+    "launch": {
+      "kind": "docker",
+      "repo": "MoonPointer-Byte/MoonPointerAI",
+      "localPath": "D:/usermoon-src/MoonPointerAI/web",
+      "fallbackPath": null,
+      "cwd": "web",
+      "port": 18764,
+      "readyPath": "/",
+      "image": "docker.m.daocloud.io/library/node:20-alpine",
+      "innerPort": 8080,
+      "command": "if [ ! -x node_modules/.bin/vite ]; then npm install; fi && npm run dev -- --host 0.0.0.0 --port 8080",
+      "modulesVolume": "usermoon-ai-nm"
+    }
+  },
+  {
+    "id": "answerbook",
+    "name": "AnswerBook",
+    "year": "2025",
+    "lang": "HTML",
+    "weight": "轻",
+    "tags": [
+      "视觉",
+      "交互"
+    ],
+    "url": "https://github.com/MoonPointer-Byte/AnswerBook",
+    "summary": "静态页 answers.html。容器内用 Python 静态服务托管。",
+    "scene": "书页",
+    "env": "Docker · Python 3.12 静态服务",
+    "launch": {
+      "kind": "docker",
+      "repo": "MoonPointer-Byte/AnswerBook",
+      "localPath": "D:/usermoon-src/AnswerBook",
+      "fallbackPath": "runtime/projects/answerbook",
+      "cwd": ".",
+      "port": 18761,
+      "readyPath": "/answers.html",
+      "image": "docker.1ms.run/library/python:3.12-slim",
+      "innerPort": 8080,
+      "command": "python -m http.server 8080",
+      "modulesVolume": null
+    }
+  },
+  {
+    "id": "evadance",
+    "name": "EvaDance",
+    "year": "2026",
+    "lang": "React",
+    "weight": "重",
+    "tags": [
+      "私有",
+      "BI",
+      "飞书"
+    ],
+    "url": "https://github.com/MoonPointer-Byte/EvaDance",
+    "summary": "隐藏项目。优化师分配与 BI / 飞书集成，FastAPI + React。这里按官方方式启动前端（5173），后端是 Python 8000，需要 .env。",
+    "scene": "分配台",
+    "env": "Docker · Node 20",
+    "launch": {
+      "kind": "docker",
+      "repo": "MoonPointer-Byte/EvaDance",
+      "localPath": "D:/usermoon-src/EvaDance",
+      "fallbackPath": null,
+      "cwd": ".",
+      "port": 18767,
+      "readyPath": "/",
+      "image": "docker.1ms.run/library/python:3.12-slim",
+      "innerPort": 8080,
+      "command": "export PATH=/opt/py/bin:/opt/node/bin:$PATH PYTHONPATH=/opt/py/lib/python3.12/site-packages EVA_ENV=development EVA_LOCAL_DEV_AUTH=1 EVA_LOCAL_DEV_USERNAME=localdev EVA_LOCAL_DEV_PASSWORD=local-dev-pass EVA_COOKIE_SECURE=0 MYSQL_HOST=host.docker.internal MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=root MYSQL_DATABASE=tool_platform && if ! command -v node >/dev/null 2>&1; then apt-get update && apt-get install -y ca-certificates curl xz-utils && mkdir -p /opt/node && curl -fsSL https://cdn.npmmirror.com/binaries/node/v20.19.5/node-v20.19.5-linux-x64.tar.xz -o /tmp/node.tar.xz && tar -xJf /tmp/node.tar.xz -C /opt/node --strip-components=1; fi && if ! python -c 'import fastapi'; then pip install --no-cache-dir --prefix /opt/py -r requirements.txt; fi && python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 >/tmp/api.log 2>&1 & i=0 && ok=0 && while [ $i -lt 180 ]; do python -c 'import sys,urllib.request; urllib.request.urlopen(sys.argv[1], timeout=2)' http://127.0.0.1:8000/api/health/live && ok=1 && break; i=$((i+1)); sleep 2; done && test $ok = 1 || { cat /tmp/api.log; exit 1; } && cd frontend && if [ ! -x node_modules/.bin/vite ]; then npm install; fi && npx vite --host 0.0.0.0 --port 8080",
+      "modulesVolume": "usermoon-evadance-nm",
+      "modulesAt": "/app/frontend/node_modules",
+      "caches": [
+        {
+          "volume": "usermoon-evadance-node",
+          "at": "/opt/node"
+        },
+        {
+          "volume": "usermoon-evadance-py",
+          "at": "/opt/py"
+        }
+      ]
+    }
+  },
+  {
+    "id": "englishai",
+    "name": "EnglishAI",
+    "year": "2026",
+    "lang": "TypeScript",
+    "weight": "中",
+    "tags": [
+      "同传",
+      "本地"
+    ],
+    "url": "https://github.com/MoonPointer-Byte/MoonPointerAI",
+    "summary": "本机 EnglishAI Web 端，Vite 端口 3000。",
+    "scene": "英语",
+    "env": "Docker · Node 20",
+    "launch": {
+      "kind": "docker",
+      "repo": "MoonPointer-Byte/MoonPointerAI",
+      "localPath": "D:/usermoon-src/MoonPointerAI/web",
+      "fallbackPath": null,
+      "cwd": "web",
+      "port": 18768,
+      "readyPath": "/",
+      "image": "docker.m.daocloud.io/library/node:20-alpine",
+      "innerPort": 8080,
+      "command": "if [ ! -x node_modules/.bin/vite ]; then npm install; fi && npm run dev -- --host 0.0.0.0 --port 8080",
+      "modulesVolume": "usermoon-englishai-nm"
+    }
+  }
+]

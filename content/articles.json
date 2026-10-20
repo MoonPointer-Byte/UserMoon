@@ -1,0 +1,21 @@
+{
+  "profiles": {
+    "csdn": {
+      "user": "",
+      "home": "",
+      "label": "CSDN",
+      "sync": true,
+      "limit": 20
+    },
+    "github": {
+      "owner": "MoonPointer-Byte",
+      "label": "GitHub",
+      "syncReadmes": true,
+      "sources": []
+    },
+    "local": {
+      "label": "本站"
+    }
+  },
+  "entries": []
+}

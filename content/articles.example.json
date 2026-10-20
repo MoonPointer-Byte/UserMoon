@@ -1,0 +1,38 @@
+{
+  "profiles": {
+    "csdn": {
+      "user": "your_csdn_id",
+      "home": "https://blog.csdn.net/your_csdn_id",
+      "label": "CSDN"
+    },
+    "github": {
+      "owner": "MoonPointer-Byte",
+      "label": "GitHub"
+    },
+    "local": {
+      "label": "本站"
+    }
+  },
+  "entries": [
+    {
+      "slug": "csdn-sample",
+      "title": "（示例）CSDN 文章标题",
+      "date": "2026-01-01",
+      "summary": "在本站显示的摘要；点开后去 CSDN 读全文。",
+      "source": "csdn",
+      "url": "https://blog.csdn.net/your_csdn_id/article/details/123456789",
+      "tags": ["笔记"]
+    },
+    {
+      "slug": "github-usermoon-readme",
+      "title": "（示例）UserMoon README",
+      "date": "2026-10-01",
+      "summary": "从 GitHub 拉取并在本站渲染。",
+      "source": "github",
+      "repo": "MoonPointer-Byte/UserMoon",
+      "path": "README.md",
+      "ref": "main",
+      "tags": ["文档"]
+    }
+  ]
+}
