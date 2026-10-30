@@ -1,6 +1,6 @@
 # 项目源码目录
 
-启动台从这些路径读取真实代码：
+作品舞台按 `shared/catalog.json` 的 `localPath` 读取真实代码。本机常见位置：
 
 | 项目 | 路径 |
 | --- | --- |
@@ -10,6 +10,8 @@
 | MoonKeyboard | `D:\usermoon-src\MoonKeyboard` |
 | MoonPointerAI | `D:\usermoon-src\MoonPointerAI\web` |
 | AnswerBook | `D:\usermoon-src\AnswerBook` |
+
+服务器上的副本放在 `USERMOON_SRC_ROOT`（默认 `/home/ubuntu/usermoon-src`）。
 
 缺少代码时，可手动执行：
 

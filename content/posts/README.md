@@ -9,4 +9,4 @@
 - `summary`
 - `tags`（`[a, b]` 或逗号分隔）
 
-CSDN / GitHub 文章请写到上一级的 `articles.json`，不要把外链正文硬拷进这里。
+CSDN / GitHub 的绑定在主人台「文章源」里保存。`articles.json` 只是数据库还没有配置时的种子，不要把外链正文拷进这个目录。
