@@ -11,35 +11,60 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-usermoon}
     # 对 docker bridge 发布（slot 经 host.docker.internal）；
     # 公网访问由 deploy-site.sh 用 iptables DOCKER-USER 拦住。
+    mem_limit: 420m
     ports:
       - "3306:3306"
     volumes:
       - usermoon-mysql:/var/lib/mysql
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
-      interval: 8s
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$$MYSQL_ROOT_PASSWORD", "--silent"]
+      interval: 30s
       timeout: 5s
-      retries: 20
+      retries: 8
+      start_period: 40s
 
   mongo:
     image: docker.m.daocloud.io/library/mongo:7
     restart: unless-stopped
-    command: ["--wiredTigerCacheSizeGB", "0.25"]
+    # TCP 探测。mongosh 是完整 Node 进程，8 秒一次会把 2G 机器打卡，并写爆容器日志。
+    command:
+      - --wiredTigerCacheSizeGB=0.15
+      - --quiet
+      - --setParameter
+      - diagnosticDataCollectionEnabled=false
+    mem_limit: 280m
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
       - usermoon-mongo:/data/db
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 8s
-      timeout: 5s
-      retries: 20
+      test: ["CMD-SHELL", "bash -c 'echo >/dev/tcp/127.0.0.1/27017'"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+      start_period: 25s
 
   app:
     build:
       context: .
       dockerfile: docker/site.Dockerfile
     restart: unless-stopped
+    mem_limit: 640m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
     # host 网络：/live 才能访问本机映射的项目端口；也能调宿主机 Docker
     network_mode: host
     environment:
@@ -65,7 +90,7 @@ services:
         condition: service_healthy
       mongo:
         condition: service_healthy
-    command: ["npx", "vite", "preview", "--host", "0.0.0.0", "--port", "80"]
+    command: ["node", "node_modules/vite/bin/vite.js", "preview", "--host", "0.0.0.0", "--port", "80"]
 
 volumes:
   usermoon-mysql:

@@ -28,13 +28,16 @@ import {
   githubSnapshot,
   getArticleProfiles,
   kickArticleSync,
-  listAchievements,
   listNotes,
   listPostsAsync,
   listShares,
   neighborPosts,
+  readAchievements,
   readPost,
+  readProfile,
   updateArticleProfiles,
+  writeAchievements,
+  writeProfile,
 } from "./site";
 import { dbStats, initDb, listDbArticles, listDbNotes } from "./db";
 import { assertOwner, ownerConfigured } from "./owner";
@@ -185,6 +188,33 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
       return send(res, 200, { notes: await listDbNotes(80) });
     }
 
+    if (req.method === "POST" && pathname === "/api/manage/profile") {
+      const body = await readJson(req);
+      try {
+        const profile = await writeProfile({
+          name: body.name != null ? String(body.name) : undefined,
+          handle: body.handle != null ? String(body.handle) : undefined,
+          school: body.school != null ? String(body.school) : undefined,
+          role: body.role != null ? String(body.role) : undefined,
+          bio: body.bio != null ? String(body.bio) : undefined,
+          github: body.github != null ? String(body.github) : undefined,
+        });
+        return send(res, 200, { ok: true, profile });
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : "保存失败" });
+      }
+    }
+
+    if (req.method === "POST" && pathname === "/api/manage/achievements") {
+      const body = await readJson(req);
+      try {
+        const achievements = await writeAchievements(body.achievements);
+        return send(res, 200, { ok: true, achievements });
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : "保存失败" });
+      }
+    }
+
     if (req.method === "POST" && pathname === "/api/manage/settings/articles") {
       const body = await readJson(req);
       try {
@@ -241,8 +271,12 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
       return send(res, 200, { shares: listShares() });
     }
 
+    if (req.method === "GET" && pathname === "/api/profile") {
+      return send(res, 200, { profile: await readProfile() });
+    }
+
     if (req.method === "GET" && pathname === "/api/achievements") {
-      return send(res, 200, { achievements: listAchievements() });
+      return send(res, 200, { achievements: await readAchievements() });
     }
 
     if (req.method === "GET" && pathname === "/api/notes") {

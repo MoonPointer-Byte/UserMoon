@@ -187,6 +187,27 @@ export type Achievement = {
 const POSTS_DIR = path.resolve(process.cwd(), "content/posts");
 const SHARES_FILE = path.resolve(process.cwd(), "content/shares.json");
 const HONORS_FILE = path.resolve(process.cwd(), "content/achievements.json");
+const PROFILE_FILE = path.resolve(process.cwd(), "content/profile.json");
+
+const ACHIEVEMENT_CATEGORIES = ["学业", "竞赛与奖项", "经历", "项目结果"] as const;
+
+export type Profile = {
+  name: string;
+  handle: string;
+  school: string;
+  role: string;
+  bio: string;
+  github: string;
+};
+
+const DEFAULT_PROFILE: Profile = {
+  name: "MoonPointer",
+  handle: "MoonPointer-Byte",
+  school: "南京林业大学 · 计算机科学与技术",
+  role: "Agent / 全栈",
+  bio: "南京林业大学计算机科学与技术。平时做 Agent 和全栈，也把工具做成能打开的作品。",
+  github: "https://github.com/MoonPointer-Byte",
+};
 
 const githubMdCache = new Map<string, { at: number; text: string }>();
 
@@ -694,10 +715,106 @@ export function listShares() {
   return readJsonFile<Share>(SHARES_FILE).filter((item) => item.title && item.url);
 }
 
+function clip(value: unknown, max: number) {
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function normalizeProfile(raw: Partial<Profile> | null | undefined): Profile {
+  const github = clip(raw?.github, 180) || DEFAULT_PROFILE.github;
+  return {
+    name: clip(raw?.name, 40) || DEFAULT_PROFILE.name,
+    handle: clip(raw?.handle, 40) || DEFAULT_PROFILE.handle,
+    school: clip(raw?.school, 80),
+    role: clip(raw?.role, 40),
+    bio: clip(raw?.bio, 600) || DEFAULT_PROFILE.bio,
+    github: /^https?:\/\//.test(github) ? github : `https://github.com/${github.replace(/^@/, "")}`,
+  };
+}
+
+function profileFromFile(): Profile {
+  try {
+    return normalizeProfile(JSON.parse(fs.readFileSync(PROFILE_FILE, "utf8")) as Partial<Profile>);
+  } catch {
+    return DEFAULT_PROFILE;
+  }
+}
+
+export async function readProfile(): Promise<Profile> {
+  try {
+    const raw = await getSetting("profile", "");
+    if (raw) return normalizeProfile(JSON.parse(raw) as Partial<Profile>);
+  } catch {
+    // 数据库暂时不可用时仍返回站内档案
+  }
+  return profileFromFile();
+}
+
+export async function writeProfile(input: Partial<Profile>) {
+  const next = normalizeProfile({ ...(await readProfile()), ...input });
+  await setSetting("profile", JSON.stringify(next));
+  return next;
+}
+
+function normalizeAchievement(raw: Partial<Achievement>, index: number): Achievement | null {
+  const title = clip(raw.title, 80);
+  if (!title) return null;
+  const category = ACHIEVEMENT_CATEGORIES.includes(raw.category as (typeof ACHIEVEMENT_CATEGORIES)[number])
+    ? (raw.category as Achievement["category"])
+    : "竞赛与奖项";
+  const year = clip(raw.year, 8);
+  const id = clip(raw.id, 64) || slugify(`${year}-${title}`) || `honor-${index + 1}`;
+  return {
+    id,
+    year,
+    category,
+    title,
+    result: clip(raw.result, 24),
+    detail: clip(raw.detail, 240),
+    url: clip(raw.url, 240),
+  };
+}
+
+function sortAchievements(items: Achievement[]) {
+  return [...items].sort((a, b) => b.year.localeCompare(a.year) || a.title.localeCompare(b.title, "zh"));
+}
+
 export function listAchievements() {
-  return readJsonFile<Achievement>(HONORS_FILE)
-    .filter((item) => item.title && item.category)
-    .sort((a, b) => b.year.localeCompare(a.year));
+  return sortAchievements(
+    readJsonFile<Achievement>(HONORS_FILE)
+      .map((item, index) => normalizeAchievement(item, index))
+      .filter((item): item is Achievement => Boolean(item)),
+  );
+}
+
+export async function readAchievements(): Promise<Achievement[]> {
+  try {
+    const raw = await getSetting("achievements", "");
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<Achievement>[];
+      if (Array.isArray(parsed)) {
+        return sortAchievements(
+          parsed
+            .map((item, index) => normalizeAchievement(item, index))
+            .filter((item): item is Achievement => Boolean(item)),
+        );
+      }
+    }
+  } catch {
+    // 使用文件里的种子
+  }
+  return listAchievements();
+}
+
+export async function writeAchievements(input: unknown) {
+  const rows = Array.isArray(input) ? input : [];
+  const next = sortAchievements(
+    rows
+      .slice(0, 40)
+      .map((item, index) => normalizeAchievement((item ?? {}) as Partial<Achievement>, index))
+      .filter((item): item is Achievement => Boolean(item)),
+  );
+  await setSetting("achievements", JSON.stringify(next));
+  return next;
 }
 
 export async function readVisit() {

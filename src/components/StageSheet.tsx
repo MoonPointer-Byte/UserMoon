@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { startGrid } from "../stage/GridField";
+import { ScrollLens } from "./ScrollLens";
 import "../stage/stage.css";
 
 const LINKS: Array<{ to: string; icon: string; label: string; caption?: string }> = [
@@ -15,10 +16,12 @@ const LINKS: Array<{ to: string; icon: string; label: string; caption?: string }
 export function StageSheet({
   kicker,
   title,
+  lens = false,
   children,
 }: {
   kicker: string;
   title: string;
+  lens?: boolean;
   children: ReactNode;
 }) {
   const gridRef = useRef<HTMLCanvasElement>(null);
@@ -57,7 +60,7 @@ export function StageSheet({
       }}
     >
       <canvas className="stage-sheet__grid" ref={gridRef} />
-      <div className="stage-sheet__scroll">
+      <div className={`stage-sheet__scroll${lens ? " has-lens" : ""}`}>
         <header className="stage-sheet__head">
           <p>{kicker}</p>
           <h1>{title}</h1>
@@ -75,6 +78,7 @@ export function StageSheet({
         </ul>
         <div className="stage-sheet__body">{children}</div>
       </div>
+      {lens ? <ScrollLens /> : null}
     </div>
   );
 }

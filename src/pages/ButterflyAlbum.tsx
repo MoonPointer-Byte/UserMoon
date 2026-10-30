@@ -127,7 +127,17 @@ function unit(seed: number, index: number, salt: number) {
   return n - Math.floor(n);
 }
 
-function AlbumCloud({ groups, onOpen }: { groups: AlbumGroup[]; onOpen: (shot: Shot) => void }) {
+function AlbumCloud({
+  groups,
+  spread,
+  leaving,
+  onOpen,
+}: {
+  groups: AlbumGroup[];
+  spread: boolean;
+  leaving: boolean;
+  onOpen: (shot: Shot) => void;
+}) {
   const shots = groups.flatMap((group) => group.shots);
   const [focus, setFocus] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -192,7 +202,7 @@ function AlbumCloud({ groups, onOpen }: { groups: AlbumGroup[]; onOpen: (shot: S
           const calm = seed === 0 && group.shots.length <= 4;
           const anchor = placeCard(0, group.shots.length, band, groups.length, calm);
           const label =
-            focus != null ? null : (
+            !spread || focus != null ? null : (
               <p
                 key={`${group.id}-label`}
                 className="album__label"
@@ -212,7 +222,18 @@ function AlbumCloud({ groups, onOpen }: { groups: AlbumGroup[]; onOpen: (shot: S
           const y = Math.min(78, Math.max(18, slot.y + k * 6));
           const browsing = !grid && focus != null;
           const pose = browsing ? browsePose(index, focus, shots.length) : null;
-          const style = grid
+          const delay = `${(leaving ? Math.max(shots.length - 1 - index, 0) : index) * 46}ms`;
+          const style = !spread
+            ? {
+                left: "50%",
+                top: "46%",
+                zIndex: 3,
+                opacity: 0,
+                filter: narrow ? "none" : "blur(12px)",
+                transitionDelay: delay,
+                transform: `translate(-50%, -50%) translateZ(0px) rotate(${index % 2 ? 14 : -14}deg) scale(0.05)`,
+              }
+            : grid
             ? { animationDelay: `${index * 70}ms` }
             : pose
               ? {
@@ -220,7 +241,9 @@ function AlbumCloud({ groups, onOpen }: { groups: AlbumGroup[]; onOpen: (shot: S
                   top: `${pose.y}%`,
                   zIndex: pose.zIndex,
                   opacity: 1,
+                  filter: "blur(0px)",
                   animationDelay: `${index * 70}ms`,
+                  transitionDelay: delay,
                   transform: pose.transform,
                 }
               : {
@@ -228,14 +251,16 @@ function AlbumCloud({ groups, onOpen }: { groups: AlbumGroup[]; onOpen: (shot: S
                   top: `${y}%`,
                   zIndex: Math.round(slot.z + 220),
                   opacity: 1,
+                  filter: "blur(0px)",
                   animationDelay: `${index * 70}ms`,
+                  transitionDelay: delay,
                   transform: `translate(-50%, -50%) translateZ(${slot.z}px) rotateX(${slot.rx + k * 8}deg) rotateY(${slot.ry + j * 16}deg) scale(${slot.s})`,
                 };
           return (
             <button
               key={shot.src}
               type="button"
-              className={`album__card${pose?.hero ? " is-hero" : ""}`}
+              className={`album__card${pose?.hero ? " is-hero" : ""}${spread ? "" : " is-flight"}`}
               style={style}
               onClick={() => {
                 if (drag.current.moved) {
@@ -334,6 +359,7 @@ export function ButterflyAlbum() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [gather, setGather] = useState(0);
   const [active, setActive] = useState<Shot | null>(null);
+  const [spread, setSpread] = useState(false);
   const leaveTimer = useRef(0);
   const open = phase !== "idle";
   useEffect(() => {
@@ -350,6 +376,17 @@ export function ButterflyAlbum() {
     };
   }, []);
 
+  useEffect(() => {
+    if (phase !== "cosmos") {
+      setSpread(false);
+      return;
+    }
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setSpread(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [phase]);
+
   const groups = useMemo(
     () =>
       GROUPS.map((group) => ({
@@ -360,7 +397,7 @@ export function ButterflyAlbum() {
     [],
   );
   return (
-    <main className={`album${open ? " is-open" : ""}`}>
+    <main className={`album${open ? " is-open" : ""}${open && !spread ? " is-flight" : ""}`}>
       <StarField />
       <Nebula phase={phase} />
       <Link className="album__home" to="/" aria-label="返回">
@@ -388,10 +425,12 @@ export function ButterflyAlbum() {
             if (phase !== "cosmos") return;
             setActive(null);
             setPhase("leaving");
+            setSpread(false);
             setGather((value) => value + 1);
+            const count = groups.reduce((sum, group) => sum + group.shots.length, 0);
             const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
             window.clearTimeout(leaveTimer.current);
-            leaveTimer.current = window.setTimeout(() => setPhase("idle"), reduce ? 0 : 1500);
+            leaveTimer.current = window.setTimeout(() => setPhase("idle"), reduce ? 0 : Math.min(2100, 980 + count * 46));
           }}
           aria-label="Return"
         >
@@ -404,7 +443,7 @@ export function ButterflyAlbum() {
       )}
       {open && groups.length === 0 ? <p className="album__empty">No photos yet.</p> : null}
       <section className="album__wall" hidden={!open || groups.length === 0}>
-        <AlbumCloud groups={groups} onOpen={setActive} />
+        <AlbumCloud groups={groups} spread={spread && phase === "cosmos"} leaving={phase === "leaving"} onOpen={setActive} />
       </section>
       {active ? (
         <button type="button" className="album__lightbox" onClick={() => setActive(null)}>

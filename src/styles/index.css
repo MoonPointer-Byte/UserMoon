@@ -3548,12 +3548,19 @@ button, input { font: inherit; color: inherit; }
   font-size: 0.8rem;
 }
 
-.owner__form input {
+.owner__form input,
+.owner__form textarea,
+.owner__form select {
   border: 1px solid var(--line);
   background: transparent;
   color: var(--ink);
   padding: 0.5rem 0.65rem;
   font: inherit;
+}
+
+.owner__form textarea {
+  min-height: 96px;
+  resize: vertical;
 }
 
 .owner__form button,
@@ -3631,6 +3638,33 @@ button, input { font: inherit; color: inherit; }
 
 .owner__row span {
   opacity: 0.5;
+}
+
+.owner__honor {
+  display: grid;
+  grid-template-columns: 72px minmax(6.5rem, 8rem) minmax(0, 1fr) 5.5rem;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.owner__honor input,
+.owner__honor select,
+.owner__honor button {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+}
+
+.owner__honor input:nth-of-type(4) {
+  grid-column: 1 / -1;
+}
+
+.owner__honor button {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 .agent--locked {

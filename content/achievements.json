@@ -1,1 +1,38 @@
-[]
+[
+  {
+    "id": "jscpc-silver",
+    "year": "2025",
+    "category": "竞赛与奖项",
+    "title": "江苏省大学生程序设计竞赛",
+    "result": "银奖",
+    "detail": "华为杯",
+    "url": ""
+  },
+  {
+    "id": "icpc-shenzhen-2026",
+    "year": "2026",
+    "category": "竞赛与奖项",
+    "title": "ICPC 深圳邀请赛",
+    "result": "铜奖",
+    "detail": "",
+    "url": ""
+  },
+  {
+    "id": "ccpc-nanchang-2026",
+    "year": "2026",
+    "category": "竞赛与奖项",
+    "title": "CCPC 南昌邀请赛",
+    "result": "铜奖",
+    "detail": "",
+    "url": ""
+  },
+  {
+    "id": "softcup-2026",
+    "year": "2026",
+    "category": "项目结果",
+    "title": "中国软件杯",
+    "result": "国家三等奖",
+    "detail": "",
+    "url": ""
+  }
+]

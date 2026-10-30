@@ -31,10 +31,35 @@ type ArticleRow = {
   fetched_at: string;
 };
 
-type Tab = "overview" | "sources" | "stage" | "agent";
+type Tab = "overview" | "profile" | "sources" | "stage" | "agent";
+
+type Person = {
+  name: string;
+  handle: string;
+  school: string;
+  role: string;
+  bio: string;
+  github: string;
+};
+
+type Honor = {
+  id: string;
+  year: string;
+  category: string;
+  title: string;
+  result: string;
+  detail: string;
+  url: string;
+};
+
+const HONOR_CATEGORIES = ["学业", "竞赛与奖项", "经历", "项目结果"];
+
+function emptyHonor(): Honor {
+  return { id: "", year: String(new Date().getFullYear()), category: "竞赛与奖项", title: "", result: "", detail: "", url: "" };
+}
 
 function tabFromParam(raw: string | null): Tab {
-  if (raw === "sources" || raw === "stage" || raw === "agent" || raw === "overview") return raw;
+  if (raw === "sources" || raw === "stage" || raw === "agent" || raw === "overview" || raw === "profile") return raw;
   return "overview";
 }
 
@@ -61,6 +86,15 @@ export function OwnerPage() {
   const [agentKey, setAgentKey] = useState("");
   const [agentBaseUrl, setAgentBaseUrl] = useState("https://api.deepseek.com/v1");
   const [agentModel, setAgentModel] = useState("deepseek-chat");
+  const [person, setPerson] = useState<Person>({
+    name: "",
+    handle: "",
+    school: "",
+    role: "",
+    bio: "",
+    github: "",
+  });
+  const [honors, setHonors] = useState<Honor[]>([]);
   const { board, pending, stop, refresh } = useBoard();
   const active = findProject(board.activeId);
 
@@ -89,7 +123,7 @@ export function OwnerPage() {
   }, []);
 
   async function load() {
-    const [statsRes, articlesRes, agentRes] = await Promise.all([
+    const [statsRes, articlesRes, agentRes, profileRes, honorRes] = await Promise.all([
       fetch("/api/manage/stats", { headers: ownerHeaders() }).then(async (res) => {
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || "无权读取");
@@ -103,6 +137,16 @@ export function OwnerPage() {
       fetch("/api/manage/settings/agent", { headers: ownerHeaders() }).then(async (res) => {
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || "无权读取 Agent 配置");
+        return json;
+      }),
+      fetch("/api/profile").then(async (res) => {
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "无法读取档案");
+        return json;
+      }),
+      fetch("/api/achievements").then(async (res) => {
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "无法读取成就");
         return json;
       }),
     ]);
@@ -120,6 +164,9 @@ export function OwnerPage() {
     setAgentBaseUrl(String(agentRes.baseUrl || "https://api.deepseek.com/v1"));
     setAgentModel(String(agentRes.model || "deepseek-chat"));
     setAgentKey("");
+    const profile = profileRes.profile as Person | undefined;
+    if (profile) setPerson(profile);
+    setHonors(Array.isArray(honorRes.achievements) ? honorRes.achievements : []);
   }
 
   useEffect(() => {
@@ -165,6 +212,35 @@ export function OwnerPage() {
     setUnlocked(false);
     setStats(null);
     setMessage("已退出主人模式");
+  }
+
+  async function saveProfile(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage("正在保存档案…");
+    try {
+      const profileRes = await fetch("/api/manage/profile", {
+        method: "POST",
+        headers: ownerHeaders(),
+        body: JSON.stringify(person),
+      });
+      const profileJson = (await profileRes.json()) as { error?: string; profile?: Person };
+      if (!profileRes.ok) throw new Error(profileJson.error || "档案保存失败");
+      const honorRes = await fetch("/api/manage/achievements", {
+        method: "POST",
+        headers: ownerHeaders(),
+        body: JSON.stringify({ achievements: honors }),
+      });
+      const honorJson = (await honorRes.json()) as { error?: string; achievements?: Honor[] };
+      if (!honorRes.ok) throw new Error(honorJson.error || "成就保存失败");
+      if (profileJson.profile) setPerson(profileJson.profile);
+      setHonors(honorJson.achievements ?? []);
+      setMessage("档案已更新，关于页会立刻用新的内容。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "保存失败");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function saveAgent(event: FormEvent) {
@@ -307,6 +383,7 @@ export function OwnerPage() {
         {(
           [
             ["overview", "总览"],
+            ["profile", "档案"],
             ["stage", "展示位"],
             ["sources", "文章源"],
             ["agent", "Agent"],
@@ -327,7 +404,7 @@ export function OwnerPage() {
             <div className="owner__links">
               <Link to="/works">作品舞台（启停）</Link>
               <Link to="/agent">打开 Agent</Link>
-              <Link to="/articles">文章页</Link>
+              <Link to="/about">关于页</Link>
               <button type="button" onClick={() => switchTab("sources")}>
                 绑定 CSDN / GitHub
               </button>
@@ -366,6 +443,108 @@ export function OwnerPage() {
             ) : (
               <p>读取中…</p>
             )}
+          </article>
+        </section>
+      ) : null}
+
+      {tab === "profile" ? (
+        <section className="owner__grid">
+          <article className="owner__card">
+            <h2>个人信息</h2>
+            <form className="owner__form" onSubmit={(event) => void saveProfile(event)}>
+              <label>
+                名字
+                <input value={person.name} onChange={(event) => setPerson({ ...person, name: event.target.value })} />
+              </label>
+              <label>
+                GitHub 名
+                <input value={person.handle} onChange={(event) => setPerson({ ...person, handle: event.target.value })} />
+              </label>
+              <label>
+                方向
+                <input value={person.role} onChange={(event) => setPerson({ ...person, role: event.target.value })} />
+              </label>
+              <label>
+                学校
+                <input value={person.school} onChange={(event) => setPerson({ ...person, school: event.target.value })} />
+              </label>
+              <label>
+                简介
+                <textarea value={person.bio} onChange={(event) => setPerson({ ...person, bio: event.target.value })} />
+              </label>
+              <label>
+                GitHub 链接
+                <input value={person.github} onChange={(event) => setPerson({ ...person, github: event.target.value })} />
+              </label>
+              <div className="owner__links">
+                <button type="submit" disabled={busy}>
+                  {busy ? "保存中…" : "保存档案"}
+                </button>
+                <Link to="/about">打开关于页</Link>
+              </div>
+            </form>
+          </article>
+          <article className="owner__card">
+            <h2>成就</h2>
+            <div className="owner__rows">
+              {honors.map((item, index) => (
+                <div key={`${item.id}-${index}`} className="owner__honor">
+                  <input
+                    value={item.year}
+                    aria-label="年份"
+                    onChange={(event) =>
+                      setHonors(honors.map((row, rowIndex) => (rowIndex === index ? { ...row, year: event.target.value } : row)))
+                    }
+                  />
+                  <select
+                    value={item.category}
+                    aria-label="分类"
+                    onChange={(event) =>
+                      setHonors(honors.map((row, rowIndex) => (rowIndex === index ? { ...row, category: event.target.value } : row)))
+                    }
+                  >
+                    {HONOR_CATEGORIES.map((category) => (
+                      <option key={category}>{category}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={item.title}
+                    aria-label="标题"
+                    placeholder="标题"
+                    onChange={(event) =>
+                      setHonors(honors.map((row, rowIndex) => (rowIndex === index ? { ...row, title: event.target.value } : row)))
+                    }
+                  />
+                  <input
+                    value={item.result}
+                    aria-label="结果"
+                    placeholder="银奖"
+                    onChange={(event) =>
+                      setHonors(honors.map((row, rowIndex) => (rowIndex === index ? { ...row, result: event.target.value } : row)))
+                    }
+                  />
+                  <input
+                    value={item.detail}
+                    aria-label="补充"
+                    placeholder="补充"
+                    onChange={(event) =>
+                      setHonors(honors.map((row, rowIndex) => (rowIndex === index ? { ...row, detail: event.target.value } : row)))
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setHonors(honors.filter((_, rowIndex) => rowIndex !== index))}
+                  >
+                    删除
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="owner__links">
+              <button type="button" onClick={() => setHonors([...honors, emptyHonor()])}>
+                添加一条
+              </button>
+            </div>
           </article>
         </section>
       ) : null}

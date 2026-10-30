@@ -1,0 +1,84 @@
+.stage-sheet__scroll.has-lens {
+  scrollbar-width: none;
+}
+
+.stage-sheet__scroll.has-lens::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-lens {
+  position: fixed;
+  z-index: 45;
+  top: 72px;
+  bottom: 18px;
+  right: max(8px, env(safe-area-inset-right));
+  width: 22px;
+  touch-action: none;
+}
+
+.scroll-lens__tick {
+  position: absolute;
+  right: 4px;
+  width: 8px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+
+.scroll-lens__tick.is-view {
+  width: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.scroll-lens__tick.is-hot {
+  width: 16px;
+  background: #fff;
+}
+
+.scroll-lens__card {
+  position: fixed;
+  right: 36px;
+  width: min(280px, calc(100vw - 64px));
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(32, 32, 32, 0.96);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  color: #d7d7d7;
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-weight: 400;
+  pointer-events: none;
+}
+
+.scroll-lens__card strong {
+  display: block;
+  overflow: hidden;
+  color: #ececec;
+  font-size: 0.92rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scroll-lens__card span {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  color: #8d8d8d;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .scroll-lens {
+    top: 64px;
+    width: 28px;
+  }
+
+  .scroll-lens__card {
+    right: 40px;
+  }
+}

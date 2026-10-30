@@ -77,7 +77,7 @@ export function ArticlePage() {
 
   if (face === "stage") {
     return (
-      <StageSheet kicker="Blog" title={post?.title || "文章"}>
+      <StageSheet kicker="Blog" title={post?.title || "文章"} lens>
         {missing ? <p className="stage-sheet__note">找不到这篇文章。</p> : null}
         {!missing && !post ? <p className="stage-sheet__note">正在读取…</p> : null}
         {post ? (

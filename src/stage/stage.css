@@ -598,6 +598,68 @@
   font-weight: 300;
 }
 
+.stage-identity {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+  margin: -12px auto 18px;
+  color: #b6b6b6;
+  font-size: 0.92rem;
+}
+
+.stage-timeline {
+  position: relative;
+  margin: 4px 0 8px;
+  padding-left: 18px;
+}
+
+.stage-timeline::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: linear-gradient(rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05));
+}
+
+.stage-honor {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 14px 0 14px 8px;
+  color: #b6b6b6;
+  text-decoration: none;
+}
+
+.stage-honor::before {
+  content: "";
+  position: absolute;
+  left: -18px;
+  top: 22px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.85);
+}
+
+.stage-honor strong {
+  color: #fff;
+  font-size: 1.12rem;
+  font-weight: 300;
+}
+
+.stage-honor em {
+  color: #8d9198;
+  font-style: normal;
+}
+
+.stage-honor:hover strong {
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+}
+
 .stage-read {
   color: #d7d9de;
   line-height: 1.75;
@@ -826,13 +888,34 @@
   box-shadow: 0 28px 60px rgba(0, 0, 0, 0.48);
   overflow: hidden;
   cursor: pointer;
-  animation: album-card-in 0.7s ease both;
-  transition: transform 0.65s cubic-bezier(0.22, 0.8, 0.3, 1), left 0.65s cubic-bezier(0.22, 0.8, 0.3, 1), top 0.65s cubic-bezier(0.22, 0.8, 0.3, 1), width 0.65s ease, opacity 0.4s ease;
+  animation: none;
+  transition:
+    transform 1.08s cubic-bezier(0.16, 1, 0.3, 1),
+    left 1.08s cubic-bezier(0.16, 1, 0.3, 1),
+    top 1.08s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.7s ease,
+    opacity 0.85s ease,
+    filter 0.9s ease;
 }
 
 .album__card.is-hero {
   width: min(860px, 70vw);
   box-shadow: 0 36px 90px rgba(0, 0, 0, 0.55);
+}
+
+.album__card.is-flight {
+  pointer-events: none;
+}
+
+.album.is-flight .album__dock,
+.album.is-flight .album__label {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.album__dock,
+.album__label {
+  transition: opacity 0.55s ease;
 }
 
 .album__card img {

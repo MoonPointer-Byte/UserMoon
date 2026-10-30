@@ -107,7 +107,7 @@ export function ArticlesPage() {
 
   if (face === "stage") {
     return (
-      <StageSheet kicker="Blog" title="文章">
+      <StageSheet kicker="Blog" title="文章" lens>
         <input
           className="stage-sheet__find"
           value={query}
