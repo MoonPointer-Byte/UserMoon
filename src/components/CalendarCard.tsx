@@ -47,7 +47,9 @@ export function CalendarCard() {
             <button
               key={cell.day}
               type="button"
-              className={cell.day === selected ? "is-today" : undefined}
+              className={[cell.day === today ? "is-today" : "", cell.day === selected ? "is-on" : ""]
+                .filter(Boolean)
+                .join(" ") || undefined}
               onClick={() => setSelected(cell.day)}
             >
               {cell.day}

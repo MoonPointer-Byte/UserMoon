@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { StageSheet } from "../components/StageSheet";
+import { useFace } from "../hooks/useFace";
 
 type PostSource = "local" | "csdn" | "github";
 
@@ -22,6 +24,7 @@ type Post = {
 type Neighbor = { slug: string; title: string; source: PostSource } | null;
 
 export function ArticlePage() {
+  const { face } = useFace();
   const { slug } = useParams();
   const [post, setPost] = useState<Post | null>(null);
   const [prev, setPrev] = useState<Neighbor>(null);
@@ -71,6 +74,51 @@ export function ArticlePage() {
   }, [post]);
 
   const toc = useMemo(() => post?.headings.filter((item) => item.level >= 2) ?? [], [post]);
+
+  if (face === "stage") {
+    return (
+      <StageSheet kicker="Blog" title={post?.title || "文章"}>
+        {missing ? <p className="stage-sheet__note">找不到这篇文章。</p> : null}
+        {!missing && !post ? <p className="stage-sheet__note">正在读取…</p> : null}
+        {post ? (
+          <article className="stage-read">
+            <p className="stage-sheet__meta">
+              {sourceLabel(post.source)}
+              {post.date ? ` · ${post.date}` : ""}
+              {` · ${post.minutes} 分钟`}
+            </p>
+            {post.summary ? <p>{post.summary}</p> : null}
+            {post.readingMode === "external" && !post.html ? (
+              <p>
+                正文还没同步。
+                {post.externalUrl ? (
+                  <a href={post.externalUrl} target="_blank" rel="noreferrer">
+                    打开原文
+                  </a>
+                ) : null}
+              </p>
+            ) : (
+              <div dangerouslySetInnerHTML={{ __html: post.html }} />
+            )}
+            <p>
+              <Link to="/articles">返回文章</Link>
+              {prev ? <Link to={`/articles/${prev.slug}`}>上一篇</Link> : null}
+              {next ? <Link to={`/articles/${next.slug}`}>下一篇</Link> : null}
+            </p>
+            {toc.length ? (
+              <ul>
+                {toc.map((item) => (
+                  <li key={item.id}>
+                    <a href={`#${item.id}`}>{item.text}</a>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </article>
+        ) : null}
+      </StageSheet>
+    );
+  }
 
   return (
     <main className="reader">

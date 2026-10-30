@@ -5,9 +5,11 @@ import {
   enqueueLaunch,
   enqueueStop,
   claimLaunch,
+  claimStop,
   getActivePort,
   getBoard,
   recoverBoard,
+  touchShowcaseActivity,
 } from "./runtime-manager";
 import {
   getAgentRun,
@@ -16,6 +18,7 @@ import {
   replyAgent,
   startAgent,
   stopAgent,
+  updateAgentLlm,
 } from "./agent";
 import { SEARCH_DOMAINS, searchSite, suggestSite, type SearchDomain } from "./search";
 import {
@@ -34,6 +37,8 @@ import {
   updateArticleProfiles,
 } from "./site";
 import { dbStats, initDb, listDbArticles, listDbNotes } from "./db";
+import { assertOwner, ownerConfigured } from "./owner";
+import { clientIp, rateLimit } from "./rate-limit";
 
 const NAMES = new Map(catalog.map((item) => [item.id, item.name]));
 const proxy = httpProxy.createProxyServer({
@@ -84,8 +89,27 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
     });
   void recoverBoard();
   middlewares.use(async (req, res, next) => {
+    try {
     const url = req.url ?? "";
     const pathname = url.split("?")[0] ?? "";
+    const method = (req.method || "GET").toUpperCase();
+
+    // vite preview: /UserMoon without slash shows a base-URL hint page — always land on the app.
+    if (method === "GET" || method === "HEAD") {
+      if (pathname === "/" || pathname === "") {
+        res.statusCode = 302;
+        res.setHeader("Location", "/UserMoon/");
+        res.end();
+        return;
+      }
+      if (pathname === "/UserMoon") {
+        const query = url.includes("?") ? url.slice(url.indexOf("?")) : "";
+        res.statusCode = 302;
+        res.setHeader("Location", `/UserMoon/${query}`);
+        res.end();
+        return;
+      }
+    }
 
     if (pathname.startsWith("/live")) {
       const port = getActivePort();
@@ -98,6 +122,7 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
         );
         return;
       }
+      touchShowcaseActivity();
       const rest = url.replace(/^\/live/, "") || "/";
       req.url = rest.startsWith("/") ? rest : `/${rest}`;
       proxy.web(req, res, { target: `http://127.0.0.1:${port}` });
@@ -115,19 +140,37 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
     }
 
     if (req.method === "POST" && pathname === "/api/visit") {
+      const ip = clientIp(req);
+      const limited = rateLimit(`visit:${ip}`, 8, 60_000);
+      if (!limited.ok) return send(res, 429, { error: `访问计数过快，请 ${limited.retryAfterSec}s 后再试` });
       return send(res, 200, { count: await bumpVisit() });
     }
 
     if (req.method === "GET" && pathname === "/api/posts") {
       const params = new URL(url, "http://127.0.0.1").searchParams;
       const force = params.get("refresh") === "1";
+      if (force) {
+        const gate = assertOwner(req);
+        if (!gate.ok) return send(res, gate.status, { error: gate.error });
+      }
       const posts = (await listPostsAsync(force)).map(({ html: _html, headings: _headings, ...post }) => post);
       return send(res, 200, { posts, profiles: await getArticleProfiles() });
     }
 
     if (req.method === "POST" && pathname === "/api/posts/refresh") {
+      const gate = assertOwner(req);
+      if (!gate.ok) return send(res, gate.status, { error: gate.error });
       const posts = (await listPostsAsync(true)).map(({ html: _html, headings: _headings, ...post }) => post);
       return send(res, 200, { ok: true, count: posts.length, posts, profiles: await getArticleProfiles() });
+    }
+
+    if (req.method === "GET" && pathname === "/api/manage/status") {
+      return send(res, 200, { ownerConfigured: ownerConfigured() });
+    }
+
+    if (pathname.startsWith("/api/manage/")) {
+      const gate = assertOwner(req);
+      if (!gate.ok) return send(res, gate.status, { error: gate.error });
     }
 
     if (req.method === "GET" && pathname === "/api/manage/stats") {
@@ -154,6 +197,25 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
         });
         const posts = (await listPostsAsync(true)).map(({ html: _html, headings: _headings, ...post }) => post);
         return send(res, 200, { ok: true, profiles, count: posts.length });
+      } catch (error) {
+        return send(res, 400, { error: error instanceof Error ? error.message : "保存失败" });
+      }
+    }
+
+    if (req.method === "GET" && pathname === "/api/manage/settings/agent") {
+      return send(res, 200, await getAgentSettings(true));
+    }
+
+    if (req.method === "POST" && pathname === "/api/manage/settings/agent") {
+      const body = await readJson(req);
+      try {
+        const settings = await updateAgentLlm({
+          apiKey: body.apiKey != null ? String(body.apiKey) : undefined,
+          baseUrl: body.baseUrl != null ? String(body.baseUrl) : undefined,
+          model: body.model != null ? String(body.model) : undefined,
+          clearKey: Boolean(body.clearKey),
+        });
+        return send(res, 200, { ok: true, settings });
       } catch (error) {
         return send(res, 400, { error: error instanceof Error ? error.message : "保存失败" });
       }
@@ -189,6 +251,13 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
 
     if (req.method === "POST" && pathname === "/api/notes") {
       const body = await readJson(req);
+      // honeypot: bots fill hidden fields
+      if (String(body.website || body.url || "").trim()) {
+        return send(res, 200, { notes: await listNotes() });
+      }
+      const ip = clientIp(req);
+      const limited = rateLimit(`note:${ip}`, 3, 10 * 60_000);
+      if (!limited.ok) return send(res, 429, { error: `留言太频繁，请 ${limited.retryAfterSec}s 后再试` });
       try {
         const notes = await addNote(visitorName(body.name ?? body.visitor), String(body.text ?? ""));
         return send(res, 200, { notes });
@@ -214,10 +283,12 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
     }
 
     if (req.method === "GET" && pathname === "/api/agent/settings") {
-      return send(res, 200, getAgentSettings());
+      return send(res, 200, await getAgentSettings(false));
     }
 
     if (req.method === "GET" && pathname === "/api/agent/runs") {
+      const gate = assertOwner(req);
+      if (!gate.ok) return send(res, gate.status, { error: gate.error || "全站对话记录仅 MoonPointer 可看。" });
       return send(res, 200, { runs: await listAgentRuns() });
     }
 
@@ -229,6 +300,9 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
     }
 
     if (req.method === "POST" && pathname === "/api/agent/plan") {
+      const ip = clientIp(req);
+      const limited = rateLimit(`agent:${ip}`, 20, 60_000);
+      if (!limited.ok) return send(res, 429, { error: `Agent 调用过快，请 ${limited.retryAfterSec}s 后再试` });
       const body = await readJson(req);
       try {
         const run = await startAgent(String(body.message ?? ""), body.run_id ? String(body.run_id) : undefined);
@@ -239,6 +313,9 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
     }
 
     if (req.method === "POST" && pathname.startsWith("/api/agent/runs/") && pathname.endsWith("/reply")) {
+      const ip = clientIp(req);
+      const limited = rateLimit(`agent:${ip}`, 12, 60_000);
+      if (!limited.ok) return send(res, 429, { error: `Agent 调用过快，请 ${limited.retryAfterSec}s 后再试` });
       const id = decodeURIComponent(pathname.slice("/api/agent/runs/".length, -"/reply".length));
       const body = await readJson(req);
       try {
@@ -250,6 +327,9 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
     }
 
     if (req.method === "POST" && pathname.startsWith("/api/agent/runs/") && pathname.endsWith("/message")) {
+      const ip = clientIp(req);
+      const limited = rateLimit(`agent:${ip}`, 12, 60_000);
+      if (!limited.ok) return send(res, 429, { error: `Agent 调用过快，请 ${limited.retryAfterSec}s 后再试` });
       const id = decodeURIComponent(pathname.slice("/api/agent/runs/".length, -"/message".length));
       const body = await readJson(req);
       try {
@@ -302,6 +382,11 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
     }
 
     if (req.method === "POST" && pathname === "/api/launch") {
+      const gate = assertOwner(req);
+      if (!gate.ok) return send(res, gate.status, { error: gate.error || "只有主人能启动展示位（占用服务器内存）。" });
+      const ip = clientIp(req);
+      const limited = rateLimit(`launch:${ip}`, 6, 60_000);
+      if (!limited.ok) return send(res, 429, { error: `启动过快，请 ${limited.retryAfterSec}s 后再试` });
       const body = await readJson(req);
       const id = String(body.id ?? "");
       const visitor = visitorName(body.visitor);
@@ -319,18 +404,21 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
     }
 
     if (req.method === "POST" && pathname === "/api/stop") {
+      const gate = assertOwner(req);
+      if (!gate.ok) return send(res, gate.status, { error: gate.error || "只有主人能停止展示位。" });
       const body = await readJson(req);
       const visitor = visitorName(body.visitor);
-      send(res, 200, {
-        ...getBoard(),
-        status: "stopping",
-        message: "正在停止…",
-      });
+      const claimed = claimStop(visitor);
+      send(res, 200, claimed);
       void enqueueStop(visitor);
       return;
     }
 
     return send(res, 404, { error: "not found" });
+    } catch (error) {
+      console.error("[api]", error instanceof Error ? error.message : error);
+      if (!res.headersSent) send(res, 503, { error: "服务暂时不可用" });
+    }
   });
 
   if (server?.httpServer) {
@@ -342,6 +430,7 @@ function attach(middlewares: Connect.Server, server?: ViteDevServer) {
         socket.destroy();
         return;
       }
+      touchShowcaseActivity();
       req.url = url.replace(/^\/live/, "") || "/";
       proxy.ws(req, socket, head, { target: `ws://127.0.0.1:${port}` });
     });
@@ -355,7 +444,7 @@ export function launcherApi(): Plugin {
       attach(server.middlewares, server);
     },
     configurePreviewServer(server) {
-      attach(server.middlewares);
+      attach(server.middlewares, server);
     },
   };
 }

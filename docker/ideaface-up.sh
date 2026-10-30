@@ -30,7 +30,7 @@ EOF
 export SERVER_PORT=8081
 export SPRING_DATASOURCE_URL='jdbc:mysql://host.docker.internal:3306/interview_agent_db?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai'
 export SPRING_DATASOURCE_USERNAME=root
-export SPRING_DATASOURCE_PASSWORD=root
+export SPRING_DATASOURCE_PASSWORD="${MYSQL_PASSWORD:-usermoon}"
 export FILE_UPLOAD_DIR=/src/.runtime/ideaface-uploads
 export SPRING_AUTOCONFIGURE_EXCLUDE=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
 cd /src/Ideaface/interview-agent
@@ -44,7 +44,7 @@ java -jar target/interview-agent-0.0.1-SNAPSHOT.jar > /tmp/ideaface-api.log 2>&1
 ok=0
 i=0
 while [ "$i" -lt 400 ]; do
-  if python -c 'import socket,sys; s=socket.create_connection((sys.argv[1], int(sys.argv[2])), 2); s.close()' 127.0.0.1 8081; then
+  if python3 -c 'import socket,sys; s=socket.create_connection((sys.argv[1], int(sys.argv[2])), 2); s.close()' 127.0.0.1 8081; then
     ok=1
     break
   fi

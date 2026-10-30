@@ -54,31 +54,36 @@ export function LiveFrame({ board, project }: Props) {
     );
   }
 
+  const href = livePreviewHref(board, project);
+
   return (
     <div className="live live--frame">
       <div className="live__chrome">
         <span className="pulse" />
         <strong>{project?.name}</strong>
         <em>{board.message}</em>
-        <a href={directPreview(board, project)} target="_blank" rel="noreferrer">
+        <a href={href} target="_blank" rel="noreferrer">
           新窗口打开
         </a>
       </div>
       <iframe
-        key={`${board.activeId}-${board.startedAt}-${board.port}`}
+        key={`${board.activeId}-${board.startedAt}-${board.previewUrl}`}
         title={project?.name ?? "live"}
-        src={directPreview(board, project)}
+        src={href}
         className="live__iframe"
       />
     </div>
   );
 }
 
-function directPreview(board: Board, project: Project | null) {
-  if (!board.port) return board.previewUrl ?? "about:blank";
-  const path = project?.launch.readyPath || "/";
-  const host = window.location.hostname || "127.0.0.1";
-  const route = `${path.startsWith("/") ? path : `/${path}`}`;
+/** Always go through same-origin /live so activity + HTTPS work on CVM. */
+export function livePreviewHref(board: Board, project: Project | null) {
+  const ready = project?.launch.readyPath || "/";
+  const path = ready.startsWith("/") ? ready : `/${ready}`;
+  const base = board.previewUrl?.startsWith("/live")
+    ? board.previewUrl.split("?")[0]
+    : `/live${path}`;
   const stamp = encodeURIComponent(board.startedAt || board.activeId || "");
-  return `http://${host}:${board.port}${route}${route.includes("?") ? "&" : "?"}slot=${stamp}`;
+  const join = base.includes("?") ? "&" : "?";
+  return `${base}${join}slot=${stamp}`;
 }

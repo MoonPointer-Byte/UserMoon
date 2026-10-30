@@ -1,5 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { GameEggFX } from "../components/GameEggFX";
+import { bumpSessionCount, useGameEgg } from "../hooks/useGameEgg";
+import { StageSheet } from "../components/StageSheet";
+import { useFace } from "../hooks/useFace";
+import { useOwner } from "../hooks/useOwner";
 
 type PostSource = "local" | "csdn" | "github";
 
@@ -31,15 +36,20 @@ const FILTERS: Array<{ id: Filter; label: string }> = [
 ];
 
 export function ArticlesPage() {
+  const { isOwner } = useOwner();
+  const { face } = useFace();
   const [posts, setPosts] = useState<Post[] | null>(null);
   const [profiles, setProfiles] = useState<Profiles | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("正在整理书架…");
+  const [status, setStatus] = useState("");
+  const [railPulse, setRailPulse] = useState(false);
+  const headHits = useRef(0);
+  const headTimer = useRef(0);
+  const { egg, fire, clear } = useGameEgg();
 
   useEffect(() => {
     let cancelled = false;
-    setStatus("正在读取，并自动同步远程…");
     void fetch("/api/posts")
       .then((response) => response.json())
       .then((data: { posts?: Post[]; profiles?: Profiles }) => {
@@ -74,10 +84,71 @@ export function ArticlesPage() {
     return base;
   }, [posts]);
 
+  function onRailTitle() {
+    window.clearTimeout(headTimer.current);
+    headHits.current += 1;
+    headTimer.current = window.setTimeout(() => {
+      headHits.current = 0;
+    }, 1200);
+    if (headHits.current < 3) return;
+    headHits.current = 0;
+    setRailPulse(true);
+    fire("blog", "阅读台解锁", `${counts.all} 篇卷轴已装载`);
+    window.setTimeout(() => setRailPulse(false), 1600);
+  }
+
+  function onFilterClick(id: Filter) {
+    setFilter(id);
+    if (!bumpSessionCount(`egg-blog-filter-${id}`, 4)) return;
+    fire("blog", `${FILTERS.find((f) => f.id === id)?.label ?? id}`, "筛选槽过载 · Filter Overclock");
+    setRailPulse(true);
+    window.setTimeout(() => setRailPulse(false), 1200);
+  }
+
+  if (face === "stage") {
+    return (
+      <StageSheet kicker="Blog" title="文章">
+        <input
+          className="stage-sheet__find"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="搜索标题、标签"
+        />
+        <div className="stage-sheet__pills">
+          {FILTERS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={filter === item.id ? "is-on" : undefined}
+              onClick={() => onFilterClick(item.id)}
+            >
+              {item.label} {counts[item.id]}
+            </button>
+          ))}
+        </div>
+        {status ? <p className="stage-sheet__note">{status}</p> : null}
+        {posts && posts.length === 0 ? <p className="stage-sheet__note">还没有文章。</p> : null}
+        {posts && posts.length > 0 && visible.length === 0 ? <p className="stage-sheet__note">这个筛选下没有文章。</p> : null}
+        {visible.map((post) => (
+          <Link key={post.slug} className="stage-sheet__row" to={`/articles/${post.slug}`}>
+            <span className="stage-sheet__meta">
+              {sourceLabel(post.source, profiles)}
+              {post.date ? ` · ${post.date}` : ""}
+              {` · ${post.minutes} 分钟`}
+            </span>
+            <strong>{post.title}</strong>
+            {post.summary ? <em>{post.summary}</em> : null}
+          </Link>
+        ))}
+      </StageSheet>
+    );
+  }
+
   return (
     <main className="blog">
-      <aside className="blog__rail">
-        <header className="blog__rail-head">
+      <GameEggFX kind={egg.kind} title={egg.title} subtitle={egg.subtitle} onDone={clear} />
+      <aside className={`blog__rail hud-rail${railPulse ? " is-egg-flash" : ""}`}>
+        <header className="blog__rail-head" onClick={onRailTitle} onKeyDown={undefined} role="presentation">
           <p>阅读台</p>
           <h1>文章</h1>
         </header>
@@ -93,7 +164,7 @@ export function ArticlesPage() {
               key={item.id}
               type="button"
               className={filter === item.id ? "is-on" : undefined}
-              onClick={() => setFilter(item.id)}
+              onClick={() => onFilterClick(item.id)}
             >
               <strong>{item.label}</strong>
               <em>{counts[item.id]}</em>
@@ -105,23 +176,27 @@ export function ArticlesPage() {
           <p>源</p>
           {profiles?.csdn.user ? (
             <a href={profiles.csdn.home || `https://blog.csdn.net/${profiles.csdn.user}`} target="_blank" rel="noreferrer">
-              {profiles.csdn.label} · {profiles.csdn.user}
+              {profiles.csdn.label}
+              <span>{profiles.csdn.user}</span>
             </a>
+          ) : isOwner ? (
+            <Link to="/owner">去主人台填写 CSDN 用户名</Link>
           ) : (
-            <Link to="/manage">去数据台填写 CSDN 用户名</Link>
+            <span className="blog__source-muted">CSDN 未接入</span>
           )}
           <a
             href={`https://github.com/${profiles?.github.owner || "MoonPointer-Byte"}`}
             target="_blank"
             rel="noreferrer"
           >
-            {profiles?.github.label || "GitHub"} · {profiles?.github.owner || "MoonPointer-Byte"}
+            {profiles?.github.label || "GitHub"}
+            <span>{profiles?.github.owner || "MoonPointer-Byte"}</span>
           </a>
-          <Link to="/manage">数据台</Link>
+          {isOwner ? <Link to="/owner">主人台</Link> : null}
         </div>
       </aside>
 
-      <section className="blog__stage">
+      <section className="blog__stage hud-stage">
         <header className="blog__stage-head">
           <div>
             <p className="blog__kicker">Blog</p>
@@ -139,8 +214,15 @@ export function ArticlesPage() {
           <div className="blog__empty">
             <strong>还没有文章</strong>
             <p>
-              本站可放 Markdown；CSDN / GitHub 在 <Link to="/manage">数据台</Link> 配置后，打开本页会自动入库展示。
+              {isOwner
+                ? "本站可放 Markdown；CSDN / GitHub 在主人台配置后，打开本页会自动入库展示。"
+                : "书架还在整理，稍后再来看看。"}
             </p>
+            {isOwner ? (
+              <p>
+                <Link to="/owner">打开主人台</Link>
+              </p>
+            ) : null}
           </div>
         ) : null}
 

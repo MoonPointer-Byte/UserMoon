@@ -40,7 +40,7 @@ fi
 export SERVER_PORT=8081
 export SPRING_DATASOURCE_URL='jdbc:mysql://host.docker.internal:3306/xs?createDatabaseIfNotExist=true&serverTimezone=Asia/Shanghai&useUnicode=true&characterEncoding=utf-8'
 export SPRING_DATASOURCE_USERNAME=root
-export SPRING_DATASOURCE_PASSWORD=root
+export SPRING_DATASOURCE_PASSWORD="${MYSQL_PASSWORD:-usermoon}"
 export SPRING_DATA_REDIS_HOST=127.0.0.1
 export SPRING_DATA_REDIS_PORT=6379
 export APP_NOVEL_PATH=/src/.runtime/moonreader/novels/
@@ -56,7 +56,7 @@ java -jar target/XS-0.0.1-SNAPSHOT.jar > /tmp/moonreader-api.log 2>&1 &
 ok=0
 i=0
 while [ "$i" -lt 400 ]; do
-  if python -c 'import socket,sys; s=socket.create_connection((sys.argv[1], int(sys.argv[2])), 2); s.close()' 127.0.0.1 8081; then
+  if python3 -c 'import socket,sys; s=socket.create_connection((sys.argv[1], int(sys.argv[2])), 2); s.close()' 127.0.0.1 8081; then
     ok=1
     break
   fi

@@ -95,6 +95,7 @@ function dateOnly(value: string) {
 async function fetchText(url: string, init?: RequestInit) {
   const response = await fetch(url, {
     ...init,
+    signal: init?.signal ?? AbortSignal.timeout(8000),
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -444,8 +445,9 @@ export async function readCachedRemoteArticle(slug: string): Promise<RemoteArtic
   };
 }
 
-export function readCachedGithubMarkdown(slug: string): string {
-  return readCachedRemoteArticle(slug)?.bodyText || "";
+export async function readCachedGithubMarkdown(slug: string): Promise<string> {
+  const item = await readCachedRemoteArticle(slug);
+  return item?.bodyText || "";
 }
 
 export function kickArticleSync() {

@@ -2,9 +2,17 @@ services:
   mysql:
     image: docker.m.daocloud.io/library/mysql:8.0
     restart: unless-stopped
+    command:
+      - --innodb-buffer-pool-size=128M
+      - --performance-schema=OFF
+      - --skip-log-bin
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-usermoon}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-usermoon}
+    # 对 docker bridge 发布（slot 经 host.docker.internal）；
+    # 公网访问由 deploy-site.sh 用 iptables DOCKER-USER 拦住。
+    ports:
+      - "3306:3306"
     volumes:
       - usermoon-mysql:/var/lib/mysql
     healthcheck:
@@ -16,6 +24,9 @@ services:
   mongo:
     image: docker.m.daocloud.io/library/mongo:7
     restart: unless-stopped
+    command: ["--wiredTigerCacheSizeGB", "0.25"]
+    ports:
+      - "127.0.0.1:27017:27017"
     volumes:
       - usermoon-mongo:/data/db
     healthcheck:
@@ -29,24 +40,32 @@ services:
       context: .
       dockerfile: docker/site.Dockerfile
     restart: unless-stopped
-    ports:
-      - "${APP_PORT:-80}:4173"
+    # host 网络：/live 才能访问本机映射的项目端口；也能调宿主机 Docker
+    network_mode: host
     environment:
-      MYSQL_HOST: mysql
+      MYSQL_HOST: 127.0.0.1
       MYSQL_PORT: 3306
       MYSQL_USER: root
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-usermoon}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-usermoon}
-      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_URI: mongodb://127.0.0.1:27017
       MONGODB_DB: ${MONGODB_DB:-usermoon}
+      USERMOON_SRC_ROOT: ${USERMOON_SRC_ROOT:-/home/ubuntu/usermoon-src}
       AGENT_LLM_API_KEY: ${AGENT_LLM_API_KEY:-}
       AGENT_LLM_BASE_URL: ${AGENT_LLM_BASE_URL:-https://api.deepseek.com/v1}
       AGENT_LLM_MODEL: ${AGENT_LLM_MODEL:-deepseek-chat}
+      USERMOON_OWNER_TOKEN: ${USERMOON_OWNER_TOKEN:-}
+      # vite preview 监听；host 模式下直接占 80
+      # 用命令覆盖端口
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${USERMOON_SRC_ROOT:-/home/ubuntu/usermoon-src}:${USERMOON_SRC_ROOT:-/home/ubuntu/usermoon-src}
     depends_on:
       mysql:
         condition: service_healthy
       mongo:
         condition: service_healthy
+    command: ["npx", "vite", "preview", "--host", "0.0.0.0", "--port", "80"]
 
 volumes:
   usermoon-mysql:

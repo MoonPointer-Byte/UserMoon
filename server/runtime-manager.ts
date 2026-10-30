@@ -38,8 +38,10 @@ export type Board = {
 type Project = (typeof catalog)[number];
 
 const ROOT = process.cwd();
-const SRC_ROOT = "D:\\usermoon-src";
-const RUNTIME_IMAGE = "usermoon-runtime:1";
+const SRC_ROOT =
+  process.env.USERMOON_SRC_ROOT ||
+  (process.platform === "win32" ? "D:\\usermoon-src" : "/home/ubuntu/usermoon-src");
+const RUNTIME_IMAGE = process.env.USERMOON_RUNTIME_IMAGE || "usermoon-runtime:1";
 const RUNTIME = path.resolve(ROOT, "runtime/projects");
 const BOARD_FILE = path.resolve(ROOT, "server/board.json");
 const SLOT = "usermoon-slot";
@@ -47,6 +49,31 @@ const BY_ID = new Map(catalog.map((item) => [item.id, item]));
 
 let activePort: number | null = null;
 let queue: Promise<void> = Promise.resolve();
+/** Last /live (or launch) touch — idle showcase auto-stops to free 2G RAM. */
+let lastShowcaseActivity = 0;
+const IDLE_MS = Number(process.env.USERMOON_SHOWCASE_IDLE_MS || 18 * 60 * 1000);
+let idleTimer: ReturnType<typeof setInterval> | null = null;
+
+export function touchShowcaseActivity() {
+  lastShowcaseActivity = Date.now();
+}
+
+function ensureIdleWatcher() {
+  if (idleTimer) return;
+  idleTimer = setInterval(() => {
+    const board = readBoard();
+    if (board.status !== "running") return;
+    if (!lastShowcaseActivity) {
+      lastShowcaseActivity = Date.now();
+      return;
+    }
+    if (Date.now() - lastShowcaseActivity < IDLE_MS) return;
+    void enqueueStop("系统").catch(() => undefined);
+  }, 60_000);
+  if (typeof idleTimer === "object" && idleTimer && "unref" in idleTimer) {
+    idleTimer.unref();
+  }
+}
 
 const EMPTY: Board = {
   activeId: null,
@@ -127,13 +154,18 @@ async function ensureDocker() {
     await new Promise((resolve) => setTimeout(resolve, 3000));
   }
   throw new Error(
-    `Docker 引擎没有就绪。请打开 Docker Desktop 后再试。${last ? ` ${last.slice(0, 180)}` : ""}`,
+    `Docker 引擎没有就绪。请确认本机/服务器 Docker 已启动。${last ? ` ${last.slice(0, 180)}` : ""}`,
   );
 }
 
-function run(command: string, cwd: string) {
+function run(command: string, cwd: string, env?: Record<string, string>) {
   return new Promise<void>((resolve, reject) => {
-    const proc = spawn(command, { cwd, shell: true, windowsHide: true });
+    const proc = spawn(command, {
+      cwd,
+      shell: true,
+      windowsHide: true,
+      env: { ...process.env, ...env },
+    });
     let stderr = "";
     proc.stderr?.on("data", (chunk) => {
       stderr += String(chunk);
@@ -153,18 +185,24 @@ function githubFolder(repo: string) {
 async function ensureSource(project: Project) {
   const launch = project.launch;
   const folder = githubFolder(launch.repo);
-  const root = path.join("D:\\usermoon-src", folder);
+  const root = path.join(SRC_ROOT, folder);
   const workdir = path.resolve(root, launch.cwd || ".");
   if (!fs.existsSync(workdir)) {
     patchBoard({ status: "cloning", message: `正在下载 GitHub 源码 ${launch.repo}…` });
     try {
-      await run(`python "${path.join(ROOT, "server", "fetch_repo.py")}" ${launch.repo} ${folder}`, ROOT);
+      const py = process.platform === "win32" ? "python" : "python3";
+      await run(
+        `${py} "${path.join(ROOT, "server", "fetch_repo.py")}" ${launch.repo} ${folder}`,
+        ROOT,
+        { USERMOON_SRC_ROOT: SRC_ROOT },
+      );
     } catch (error) {
       const fallback = launch.localPath
         ? path.isAbsolute(launch.localPath)
           ? launch.localPath
           : path.resolve(ROOT, launch.localPath)
         : "";
+      // Windows catalog paths won't exist on Linux; only use if present
       if (fallback && fs.existsSync(fallback)) return fallback;
       throw error;
     }
@@ -324,7 +362,16 @@ async function ensureRuntime() {
     }
   }
   await removeSlot();
-  const args = ["run", "-d", "--name", SLOT];
+  const args = [
+    "run",
+    "-d",
+    "--name",
+    SLOT,
+    "--add-host",
+    "host.docker.internal:host-gateway",
+    "-e",
+    `MYSQL_PASSWORD=${process.env.MYSQL_PASSWORD || "usermoon"}`,
+  ];
   for (const port of wanted) args.push("-p", `${port}:8080`);
   args.push("-v", `${SRC_ROOT}:/src`);
   for (const [at, volume] of runtimeMounts()) args.push("-v", `${volume}:${at}`);
@@ -524,6 +571,7 @@ async function launchInternal(id: string, visitor: string) {
       detail: `${project.name} 已在端口 ${project.launch.port} 打开`,
     });
     const ready = project.launch.readyPath || "/";
+    touchShowcaseActivity();
     return patchBoard({
       activeId: id,
       status: "running",
@@ -581,7 +629,19 @@ export function claimLaunch(id: string, visitor: string) {
   });
 }
 
+export function claimStop(visitor: string) {
+  const board = readBoard();
+  if (board.status === "idle" && !board.activeId) return board;
+  const current = board.activeId ? BY_ID.get(board.activeId) : null;
+  return patchBoard({
+    status: "stopping",
+    message: current ? `正在停止 ${current.name}…` : "正在停止…",
+    startedBy: visitor || board.startedBy,
+  });
+}
+
 export async function recoverBoard() {
+  ensureIdleWatcher();
   const board = readBoard();
   const busy = board.status === "cloning" || board.status === "installing" || board.status === "starting" || board.status === "stopping";
   if (busy && board.activeId) {
@@ -593,6 +653,7 @@ export async function recoverBoard() {
     if (open && mark.startsWith(`SLOT ${board.activeId} `)) {
       const ready = project?.launch.readyPath || "/";
       activePort = port;
+      touchShowcaseActivity();
       return patchBoard({
         status: "running",
         message: `${project?.name ?? board.activeId} 运行中${project ? ` · ${project.env}` : ""}`,
@@ -616,6 +677,7 @@ export async function recoverBoard() {
   const result = await docker(["inspect", "-f", "{{.State.Running}}", SLOT]).catch(() => ({ code: 1, out: "" }));
   if (result.code === 0 && result.out.trim() === "true") {
     activePort = board.port;
+    if (!lastShowcaseActivity) touchShowcaseActivity();
     return board;
   }
   activePort = null;

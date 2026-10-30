@@ -1,7 +1,44 @@
 import catalog from "../shared/catalog.json";
-import { getDbAgentRun, listDbAgentRuns, saveDbAgentRun } from "./db";
+import { getDbAgentRun, getSetting, listDbAgentRuns, saveDbAgentRun, setSetting } from "./db";
 import { getBoard } from "./runtime-manager";
 import { searchSite, type SearchDomain } from "./search";
+
+type LlmCfg = { apiKey: string; baseUrl: string; model: string };
+
+let cachedLlm: LlmCfg | null = null;
+
+function envLlm(): LlmCfg {
+  return {
+    apiKey: (process.env.AGENT_LLM_API_KEY || process.env.OPENAI_API_KEY || "").trim(),
+    baseUrl: (process.env.AGENT_LLM_BASE_URL || "https://api.deepseek.com/v1").replace(/\/$/, ""),
+    model: process.env.AGENT_LLM_MODEL || "deepseek-chat",
+  };
+}
+
+export async function refreshLlmConfig(): Promise<LlmCfg> {
+  const raw = await getSetting("agent_llm");
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Partial<LlmCfg>;
+      const env = envLlm();
+      cachedLlm = {
+        apiKey: String(parsed.apiKey ?? env.apiKey ?? "").trim(),
+        baseUrl: String(parsed.baseUrl || env.baseUrl).replace(/\/$/, ""),
+        model: String(parsed.model || env.model),
+      };
+      return cachedLlm;
+    } catch {
+      // fall through
+    }
+  }
+  cachedLlm = envLlm();
+  return cachedLlm;
+}
+
+async function ensureLlm(): Promise<LlmCfg> {
+  if (!cachedLlm) return refreshLlmConfig();
+  return cachedLlm;
+}
 
 export type AgentStatus =
   | "running"
@@ -65,14 +102,6 @@ async function readRun(id: string): Promise<AgentRun | null> {
 
 function publicRun(run: AgentRun): AgentRun {
   return run;
-}
-
-function llmConfig() {
-  return {
-    apiKey: (process.env.AGENT_LLM_API_KEY || process.env.OPENAI_API_KEY || "").trim(),
-    baseUrl: (process.env.AGENT_LLM_BASE_URL || "https://api.deepseek.com/v1").replace(/\/$/, ""),
-    model: process.env.AGENT_LLM_MODEL || "deepseek-chat",
-  };
 }
 
 const TOOLS = [
@@ -233,7 +262,7 @@ async function invokeTool(name: string, args: Record<string, unknown>): Promise<
 type LlmMessage = Record<string, unknown>;
 
 async function chatCompletion(messages: LlmMessage[]) {
-  const cfg = llmConfig();
+  const cfg = await ensureLlm();
   if (!cfg.apiKey) return null;
   const response = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
@@ -280,7 +309,7 @@ async function mockAnswer(userText: string): Promise<{ answer: string; trajector
   if (!result.hits.length) {
     return {
       answer:
-        "我这边还没有配置 AGENT_LLM_API_KEY，只能做站内检索。没有找到匹配内容。你可以换个词，或到 /repos 自己挑项目运行。",
+        "我这边还没有配置大模型密钥，只能做站内检索。没有找到匹配内容。你可以换个词，或到作品页自己看介绍。",
       trajectory,
     };
   }
@@ -319,7 +348,7 @@ function createEmptyRun(message: string): AgentRun {
 }
 
 async function runLoop(run: AgentRun) {
-  const cfg = llmConfig();
+  const cfg = await ensureLlm();
   if (!cfg.apiKey) {
     const mock = await mockAnswer(run.message);
     run.loop.trajectory.push(...mock.trajectory);
@@ -446,15 +475,38 @@ export async function getAgentRun(id: string) {
   return run ? publicRun(run) : null;
 }
 
-export function getAgentSettings() {
-  const cfg = llmConfig();
-  return {
+export async function getAgentSettings(detailed = false) {
+  const cfg = await ensureLlm();
+  const base = {
     configured: Boolean(cfg.apiKey),
-    baseUrl: cfg.baseUrl,
     model: cfg.model,
     maxSteps: MAX_STEPS,
+  };
+  if (!detailed) return base;
+  return {
+    ...base,
+    baseUrl: cfg.baseUrl,
     keyMasked: cfg.apiKey ? `${cfg.apiKey.slice(0, 4)}…${cfg.apiKey.slice(-4)}` : "",
   };
+}
+
+export async function updateAgentLlm(input: {
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+  clearKey?: boolean;
+}) {
+  const current = await ensureLlm();
+  const next: LlmCfg = {
+    apiKey: input.clearKey ? "" : input.apiKey != null && input.apiKey.trim() ? input.apiKey.trim() : current.apiKey,
+    baseUrl: (input.baseUrl?.trim() || current.baseUrl).replace(/\/$/, ""),
+    model: input.model?.trim() || current.model,
+  };
+  if (!next.baseUrl.startsWith("http")) throw new Error("Base URL 需要以 http 开头");
+  if (!next.model) throw new Error("模型名不能为空");
+  await setSetting("agent_llm", JSON.stringify(next));
+  cachedLlm = next;
+  return getAgentSettings(true);
 }
 
 export async function startAgent(message: string, runId?: string) {

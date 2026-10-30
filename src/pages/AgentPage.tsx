@@ -1,5 +1,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { StageSheet } from "../components/StageSheet";
+import { useFace } from "../hooks/useFace";
+import { useOwner } from "../hooks/useOwner";
 
 type Run = {
   id: string;
@@ -19,25 +22,55 @@ type RunSummary = {
   status: string;
   message: string;
   updatedAt: string;
-  final_answer: string;
 };
 
 const ACTIVE_KEY = "usermoon.agent.activeRunId";
+const HISTORY_KEY = "usermoon.agent.localHistory";
+
+function readLocalHistory(): RunSummary[] {
+  try {
+    const raw = window.sessionStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as RunSummary[];
+    return Array.isArray(parsed) ? parsed.slice(0, 30) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalHistory(rows: RunSummary[]) {
+  window.sessionStorage.setItem(HISTORY_KEY, JSON.stringify(rows.slice(0, 30)));
+}
+
+function upsertLocalHistory(row: RunSummary) {
+  const next = [row, ...readLocalHistory().filter((item) => item.id !== row.id)];
+  writeLocalHistory(next);
+  return next;
+}
 
 export function AgentPage() {
+  const { isOwner } = useOwner();
+  const { face } = useFace();
   const [run, setRun] = useState<Run | null>(null);
-  const [history, setHistory] = useState<RunSummary[]>([]);
+  const [history, setHistory] = useState<RunSummary[]>(() => readLocalHistory());
   const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const [settings, setSettings] = useState<{ configured: boolean; model: string } | null>(null);
   const [showTrace, setShowTrace] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const seeded = useRef(false);
 
-  async function refreshHistory() {
-    const data = (await fetch("/api/agent/runs").then((res) => res.json())) as { runs?: RunSummary[] };
-    setHistory(data.runs ?? []);
+  function rememberRun(next: Run) {
+    setRun(next);
+    window.sessionStorage.setItem(ACTIVE_KEY, next.id);
+    setHistory(
+      upsertLocalHistory({
+        id: next.id,
+        status: next.status,
+        message: next.message,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
   }
 
   async function loadRun(id: string) {
@@ -45,21 +78,8 @@ export function AgentPage() {
       run?: Run;
       error?: string;
     };
-    if (data.run) {
-      setRun(data.run);
-      window.sessionStorage.setItem(ACTIVE_KEY, data.run.id);
-    }
+    if (data.run) rememberRun(data.run);
   }
-
-  useEffect(() => {
-    void fetch("/api/agent/settings")
-      .then((res) => res.json())
-      .then((data: { configured?: boolean; model?: string }) =>
-        setSettings({ configured: Boolean(data.configured), model: data.model || "" }),
-      )
-      .catch(() => undefined);
-    void refreshHistory();
-  }, []);
 
   useEffect(() => {
     if (seeded.current) return;
@@ -113,10 +133,8 @@ export function AgentPage() {
         if (!res.ok) throw new Error(json.error || "请求失败");
         return json;
       })) as { run: Run };
-      setRun(data.run);
-      window.sessionStorage.setItem(ACTIVE_KEY, data.run.id);
+      rememberRun(data.run);
       setText("");
-      void refreshHistory();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "发送失败");
     } finally {
@@ -141,6 +159,97 @@ export function AgentPage() {
   const placeholder =
     run?.status === "awaiting_user" ? "针对当前问题回复…" : run ? "继续问…" : "问作品、页面或展示位状态…";
 
+  if (face === "stage") {
+    return (
+      <StageSheet kicker="Thinking" title="Agent">
+        <div className="stage-chat">
+          <div className="stage-chat__bar">
+            <button type="button" onClick={newChat}>
+              新对话
+            </button>
+            {run?.status === "running" ? (
+              <button type="button" onClick={() => void stop()}>
+                停止
+              </button>
+            ) : null}
+            <button type="button" onClick={() => setShowTrace((value) => !value)}>
+              {showTrace ? "隐藏轨迹" : "轨迹"}
+            </button>
+            {isOwner ? <Link to="/owner?tab=agent">配置 API Key</Link> : null}
+            {history.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={run?.id === item.id ? "is-on" : undefined}
+                onClick={() => void loadRun(item.id)}
+              >
+                {item.message.slice(0, 18) || "空消息"}
+              </button>
+            ))}
+          </div>
+          <div className="stage-chat__thread">
+            {!run ? (
+              <div className="stage-chat__chips">
+                {["Ideaface 是做什么的", "现在展示位跑着谁", "有哪些可运行项目"].map((sample) => (
+                  <button key={sample} type="button" onClick={() => setText(sample)}>
+                    {sample}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              run.loop.conversation.map((item, index) => (
+                <article key={`${item.role}-${index}`} className={`stage-chat__bubble stage-chat__bubble--${item.role}`}>
+                  <span>{item.role === "user" ? "你" : "助手"}</span>
+                  <div>{renderText(item.content)}</div>
+                </article>
+              ))
+            )}
+            {run?.status === "awaiting_user" && run.loop.pending ? (
+              <div>
+                <strong>{run.loop.pending.question}</strong>
+                <div className="stage-chat__chips">
+                  {run.loop.pending.options?.map((option) => (
+                    <button key={option} type="button" onClick={() => setText(option)}>
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {showTrace && run?.loop.trajectory.length ? (
+              <ol>
+                {run.loop.trajectory.map((item, index) => (
+                  <li key={`${item.action}-${index}`}>
+                    <code>{item.action}</code> {item.detail}
+                  </li>
+                ))}
+              </ol>
+            ) : null}
+            <div ref={bottomRef} />
+          </div>
+          <form onSubmit={(event) => void submit(event)}>
+            {error ? <p className="stage-chat__error">{error}</p> : null}
+            <textarea
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              placeholder={placeholder}
+              rows={3}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  void submit();
+                }
+              }}
+            />
+            <button type="submit" disabled={busy || !text.trim()}>
+              {busy ? "处理中…" : run?.status === "awaiting_user" ? "回复" : "发送"}
+            </button>
+          </form>
+        </div>
+      </StageSheet>
+    );
+  }
+
   return (
     <main className="agent">
       <aside className="agent__rail">
@@ -164,21 +273,21 @@ export function AgentPage() {
             </li>
           ))}
         </ul>
+        {isOwner ? (
+          <Link className="agent__rail-owner" to="/owner?tab=agent">
+            配置 API Key
+          </Link>
+        ) : null}
       </aside>
 
       <section className="agent__main">
         <header className="agent__hero">
           <div>
             <h1>Agent</h1>
-            {settings ? (
-              <p>
-                <em>{settings.configured ? settings.model : "站内搜索兜底"}</em>
-              </p>
-            ) : null}
           </div>
           <div className="agent__actions">
-            <Link className="agent__ghost" to="/repos">
-              仓库页
+            <Link className="agent__ghost" to="/works">
+              作品
             </Link>
             {run?.status === "running" ? (
               <button type="button" className="agent__ghost" onClick={() => void stop()}>
@@ -201,13 +310,7 @@ export function AgentPage() {
                 <p>可以试试</p>
                 <div className="agent__chips">
                   {["Ideaface 是做什么的", "现在展示位跑着谁", "有哪些可运行项目", "成绩页有什么"].map((sample) => (
-                    <button
-                      key={sample}
-                      type="button"
-                      onClick={() => {
-                        setText(sample);
-                      }}
-                    >
+                    <button key={sample} type="button" onClick={() => setText(sample)}>
                       {sample}
                     </button>
                   ))}
@@ -280,7 +383,7 @@ function renderText(content: string) {
   return parts.map((part, index) => {
     const md = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(part);
     if (md) {
-      const href = md[2].startsWith("http") ? md[2] : md[2];
+      const href = md[2];
       if (href.startsWith("http")) {
         return (
           <a key={index} href={href} target="_blank" rel="noreferrer">

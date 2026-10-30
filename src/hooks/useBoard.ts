@@ -19,6 +19,7 @@ const BUSY_MS = 2_000;
 export function useBoard() {
   const [board, setBoard] = useState<Board>(EMPTY);
   const [error, setError] = useState("");
+  const [needOwner, setNeedOwner] = useState(false);
   const [pending, setPending] = useState(false);
   const statusRef = useRef(board.status);
 
@@ -40,7 +41,7 @@ export function useBoard() {
       );
       setError("");
     } catch {
-      setError("启动台连不上，请确认 npm run dev 正在运行。");
+      setError("启动台连不上，请稍后重试或检查站点服务。");
     }
   }, []);
 
@@ -81,8 +82,15 @@ export function useBoard() {
       statusRef.current = next.status;
       setBoard(next);
       setError("");
-    } catch {
-      setError("启动请求失败，请再试一次。");
+      setNeedOwner(false);
+    } catch (reason) {
+      const err = reason as Error & { status?: number };
+      if (err.status === 401 || err.status === 503) {
+        setNeedOwner(true);
+        setError(err.message || "需要主人密钥才能启动");
+      } else {
+        setError(err.message || "启动请求失败，请再试一次。");
+      }
     } finally {
       setPending(false);
     }
@@ -95,12 +103,19 @@ export function useBoard() {
       statusRef.current = next.status;
       setBoard(next);
       setError("");
-    } catch {
-      setError("停止请求失败，请再试一次。");
+      setNeedOwner(false);
+    } catch (reason) {
+      const err = reason as Error & { status?: number };
+      if (err.status === 401 || err.status === 503) {
+        setNeedOwner(true);
+        setError(err.message || "需要主人密钥才能停止");
+      } else {
+        setError(err.message || "停止请求失败，请再试一次。");
+      }
     } finally {
       setPending(false);
     }
   }, []);
 
-  return { board, error, pending, launch, stop, refresh };
+  return { board, error, needOwner, pending, launch, stop, refresh, setNeedOwner };
 }

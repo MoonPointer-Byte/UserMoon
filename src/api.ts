@@ -29,17 +29,27 @@ export type Board = {
   logs: LogItem[];
 };
 
+import { ownerHeaders } from "./lib/owner";
+
 async function request(path: string, init?: RequestInit) {
   const response = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: {
+      ...ownerHeaders(),
+      ...(init?.headers || {}),
+    },
   });
-  if (!response.ok) throw new Error("请求失败");
-  return (await response.json()) as Board;
+  const json = (await response.json().catch(() => ({}))) as Board & { error?: string };
+  if (!response.ok) {
+    const err = new Error(json.error || "请求失败") as Error & { status?: number };
+    err.status = response.status;
+    throw err;
+  }
+  return json as Board;
 }
 
 export function fetchBoard() {
-  return request("/api/board");
+  return request("/api/board", { method: "GET", headers: { "Content-Type": "application/json" } });
 }
 
 export function launchProject(id: string, visitor: string) {

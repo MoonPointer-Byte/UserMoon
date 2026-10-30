@@ -12,6 +12,7 @@ import {
   addDbNote,
   bumpVisitCount,
   getSetting,
+  initDb,
   listDbNotes,
   readArticlesConfig,
   readVisitCount,
@@ -553,20 +554,16 @@ export async function listPosts(): Promise<Post[]> {
   }
 
   for (const item of listCachedRemoteArticles()) {
-    const md = item.source === "github" ? readCachedGithubMarkdown(item.slug) || item.bodyText : item.bodyText;
-    bySlug.set(item.slug, remoteToPost({ ...item, bodyText: md, html: item.html }));
+    bySlug.set(item.slug, remoteToPost(item));
   }
 
   return [...bySlug.values()].sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.title.localeCompare(b.title, "zh"));
 }
 
 export async function listPostsAsync(forceRefresh = false): Promise<Post[]> {
-  const hasRemote = listCachedRemoteArticles().length > 0;
-  if (forceRefresh || !hasRemote) {
-    await refreshRemoteArticles(true);
-  } else {
-    kickArticleSync();
-  }
+  await initDb();
+  if (forceRefresh) await refreshRemoteArticles(true);
+  else kickArticleSync();
   return listPosts();
 }
 
@@ -597,7 +594,8 @@ async function loadGithubMarkdown(entry: CatalogEntry) {
 
 export async function readPost(slug: string): Promise<Post | null> {
   const safe = slug.replace(/[^a-z0-9_-]/gi, "");
-  await refreshRemoteArticles(false);
+  await initDb();
+  kickArticleSync();
   const list = await listPosts();
   const found = list.find((post) => post.slug === safe) ?? null;
   if (!found) return null;
@@ -605,7 +603,7 @@ export async function readPost(slug: string): Promise<Post | null> {
   if (found.source === "local") return found;
 
   if (found.source === "github") {
-    const md = readCachedGithubMarkdown(safe) || found.bodyText;
+    const md = (await readCachedGithubMarkdown(safe)) || found.bodyText;
     if (md) {
       const meta = parseFrontmatter(md);
       const rendered = markdownToHtml(meta.body || md);

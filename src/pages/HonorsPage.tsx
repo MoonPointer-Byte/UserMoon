@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { ButterflyAlbum } from "./ButterflyAlbum";
+import { useFace } from "../hooks/useFace";
 
 type Achievement = {
   id: string;
@@ -14,6 +16,7 @@ type Achievement = {
 const ORDER = ["学业", "竞赛与奖项", "经历", "项目结果"];
 
 export function HonorsPage() {
+  const { face } = useFace();
   const [items, setItems] = useState<Achievement[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
 
@@ -28,6 +31,8 @@ export function HonorsPage() {
     category,
     rows: (items ?? []).filter((item) => item.category === category),
   })).filter((group) => group.rows.length > 0);
+
+  if (face === "stage") return <ButterflyAlbum />;
 
   return (
     <main className="inner">

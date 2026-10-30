@@ -100,19 +100,33 @@ export function Wallpaper() {
         context.globalAlpha = 1;
         return;
       }
-      const cell = 14;
-      const cols = Math.ceil(width / cell);
-      const rows = Math.ceil(height / cell);
-      for (let y = 0; y < rows; y += 1) {
-        for (let x = 0; x < cols; x += 1) {
-          const flow =
-            Math.sin(x * 0.22 + time + ((y * cell - pointer.y) / height) * 2) +
-            Math.cos(y * 0.18 - time + ((x * cell - pointer.x) / width) * 2);
-          if (flow < 1.05) continue;
-          context.globalAlpha = Math.min((flow - 1.05) * 0.55, 0.75);
-          context.fillStyle = accent;
-          context.fillRect(x * cell, y * cell, cell - 5, cell - 5);
-        }
+      // Soft fluid dyes — calm personal-site atmosphere (not a dense pixel grid)
+      const dyes = [
+        { color: "#3d5afe", ox: 0.22, oy: 0.28, rx: 0.42, ry: 0.34, spin: 0.31 },
+        { color: "#ff6b4a", ox: 0.72, oy: 0.22, rx: 0.36, ry: 0.3, spin: -0.22 },
+        { color: "#2ee6a6", ox: 0.58, oy: 0.68, rx: 0.4, ry: 0.36, spin: 0.18 },
+        { color: "#7ec8ff", ox: 0.18, oy: 0.72, rx: 0.34, ry: 0.28, spin: -0.15 },
+        { color: accent || "#c4ffe0", ox: 0.48, oy: 0.46, rx: 0.28, ry: 0.24, spin: 0.12 },
+      ];
+      for (const dye of dyes) {
+        const cx = (dye.ox + Math.sin(time * dye.spin) * 0.08 + (pointer.x / width - 0.5) * 0.04) * width;
+        const cy = (dye.oy + Math.cos(time * dye.spin * 0.9) * 0.07 + (pointer.y / height - 0.5) * 0.04) * height;
+        const glow = context.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * dye.rx);
+        glow.addColorStop(0, dye.color);
+        glow.addColorStop(0.45, dye.color);
+        glow.addColorStop(1, "rgba(0,0,0,0)");
+        context.globalAlpha = 0.22;
+        context.fillStyle = glow;
+        context.beginPath();
+        context.ellipse(cx, cy, width * dye.rx, height * dye.ry, time * dye.spin * 0.4, 0, Math.PI * 2);
+        context.fill();
+      }
+      context.globalAlpha = 0.08;
+      context.fillStyle = "#ffffff";
+      for (let i = 0; i < 40; i += 1) {
+        const sx = ((Math.sin(i * 9.1 + time * 0.2) * 0.5 + 0.5) * width) | 0;
+        const sy = ((Math.cos(i * 6.3 - time * 0.15) * 0.5 + 0.5) * height) | 0;
+        context.fillRect(sx, sy, 1.5, 1.5);
       }
       context.globalAlpha = 1;
     };
